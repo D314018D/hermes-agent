@@ -2,3 +2,17 @@
 .env
 __pycache__/
 MVP/__pycache__/
+*.py[cod]
+
+# Local migration/archive material. Keep on disk, do not publish as active source.
+backups/
+discard/
+live_patch/
+
+# GBrain/Obsidian runtime outputs.
+integrations/gbrain-obsidian/memory-store/
+integrations/gbrain-obsidian/logs/
+integrations/gbrain-obsidian/obsidian-vault/.obsidian/
+integrations/gbrain-obsidian/obsidian-vault/**/*.md
+integrations/gbrain-obsidian/obsidian-vault/*.base
+!integrations/gbrain-obsidian/obsidian-vault/07-templates/*.md

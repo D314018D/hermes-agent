@@ -1,0 +1,15 @@
+{
+  "source_type": "voice",
+  "source_app": "wechat",
+  "captured_at": "2026-04-25T14:30:00+10:00",
+  "title": "Woolworths N70 robot test unit follow-up",
+  "content": "今天和 Woolworths Ben 沟通了，客户希望尽快拿到 N70 大机器人测试机，澳洲认证周期预计 7-8 周，下一步要确认总部发货时间。",
+  "attachments": [
+    "2026/04/2026-04-25-wechat-woolworths-n70.m4a"
+  ],
+  "metadata": {
+    "sender": "Richard",
+    "channel": "wechat",
+    "language": "zh-CN"
+  }
+}
