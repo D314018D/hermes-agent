@@ -192,24 +192,6 @@ TOOLSETS = {
         "includes": []
     },
 
-    "gbrain": {
-        "description": "GBrain-first durable knowledge ingestion for memory and knowledge-base capture",
-        "tools": ["gbrain_ingest"],
-        "includes": []
-    },
-
-    "obsidian": {
-        "description": "Obsidian vault note writing after GBrain processing",
-        "tools": ["obsidian_write_note"],
-        "includes": []
-    },
-
-    "obsidian-gbrain": {
-        "description": "Durable GBrain processing plus Obsidian Markdown rendering",
-        "tools": [],
-        "includes": ["gbrain", "obsidian"]
-    },
-    
     "session_search": {
         "description": "Search and recall past conversations with summarization",
         "tools": ["session_search"],

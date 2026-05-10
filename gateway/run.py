@@ -1574,7 +1574,7 @@ class GatewayRunner:
             "Adapter Layer -> Normalizer -> Hermes Router -> GBrain Processing "
             "(classify, summarize, entities, relations, embeddings, dedupe) -> "
             "Memory Store (vector, graph, jsonl) -> Markdown Renderer -> Obsidian Vault. "
-            "Prefer the obsidian-gbrain toolset / obsidian_ingest or gbrain_ingest path. "
+            "Prefer the obsidian-gbrain plugin toolset / obsidian_ingest path. "
             "Do not create ad-hoc Markdown files directly unless the GBrain ingestion tool is unavailable.]"
         )
         channel_prompt = (event.channel_prompt or "").strip()
