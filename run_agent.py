@@ -3457,7 +3457,14 @@ class AIAgent:
             return False
 
         has_future_ack = bool(
-            re.search(r"\b(i['’]ll|i will|let me|i can do that|i can help with that)\b", assistant_text)
+            re.search(
+                r"\b(i['’]ll|i will|let me|i can do that|i can help with that)\b",
+                assistant_text,
+            )
+            or re.search(
+                r"(我会|我将|我来|让我|马上|立即|稍等|已为你|已经为你|设置完成|保存完成)",
+                assistant_text,
+            )
         )
         if not has_future_ack:
             return False
@@ -3482,6 +3489,18 @@ class AIAgent:
             "walkthrough",
             "report back",
             "summarize",
+            "remind",
+            "reminder",
+            "reminders",
+            "tool",
+            "execute",
+            "立即执行",
+            "执行",
+            "调用",
+            "工具",
+            "提醒",
+            "设置",
+            "保存",
         )
         workspace_markers = (
             "directory",
@@ -3505,11 +3524,30 @@ class AIAgent:
             or "~/" in user_text
             or "/" in user_text
         )
+        user_requests_tool_action = any(
+            marker in user_text
+            for marker in (
+                "remind",
+                "reminder",
+                "reminders",
+                "apple reminder",
+                "remindctl",
+                "tool",
+                "提醒",
+                "设置",
+                "保存",
+                "调用",
+                "工具",
+            )
+        )
         assistant_mentions_action = any(marker in assistant_text for marker in action_markers)
         assistant_targets_workspace = any(
             marker in assistant_text for marker in workspace_markers
         )
-        return (user_targets_workspace or assistant_targets_workspace) and assistant_mentions_action
+        return (
+            user_requests_tool_action
+            or (user_targets_workspace or assistant_targets_workspace)
+        ) and assistant_mentions_action
 
 
     def _extract_reasoning(self, assistant_message) -> Optional[str]:
@@ -14495,8 +14533,7 @@ class AIAgent:
                     self._thinking_prefill_retries = 0
 
                     if (
-                        self.api_mode == "codex_responses"
-                        and self.valid_tool_names
+                        self.valid_tool_names
                         and codex_ack_continuations < 2
                         and self._looks_like_codex_intermediate_ack(
                             user_message=user_message,
@@ -14512,8 +14549,12 @@ class AIAgent:
                         continue_msg = {
                             "role": "user",
                             "content": (
-                                "[System: Continue now. Execute the required tool calls and only "
-                                "send your final answer after completing the task.]"
+                                "[System: Your previous response said you would take an action, "
+                                "but no tool call was made. Continue now. Decide whether a tool "
+                                "is appropriate. If yes, call the actual tool(s); do not output "
+                                "JSON or manual steps as a substitute. Only send your final "
+                                "answer after completing and verifying the action. If no tool is "
+                                "appropriate, say clearly that no action has been executed.]"
                             ),
                         }
                         messages.append(continue_msg)

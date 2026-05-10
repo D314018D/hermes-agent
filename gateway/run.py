@@ -1445,6 +1445,216 @@ class GatewayRunner:
         except Exception:
             return False
 
+    def _mentions_apple_reminder(self, text: str) -> bool:
+        """Return whether the user mentioned Apple Reminder in free-form text."""
+        raw = (text or "").strip()
+        if not raw:
+            return False
+
+        if re.search(
+            r"(?is)(?<![A-Za-z0-9_])apple\s+reminder(?![A-Za-z0-9_])\s*[:：\-]?\s*(.*)$",
+            raw,
+            re.DOTALL,
+        ):
+            return True
+
+        lowered = raw.lower()
+        reminder_terms = (
+            "reminder",
+            "remind me",
+            "提醒事项",
+            "提醒我",
+            "提醒一下",
+            "提醒",
+        )
+        time_terms = (
+            "今天",
+            "今晚",
+            "明天",
+            "明早",
+            "明晚",
+            "早上",
+            "上午",
+            "中午",
+            "下午",
+            "晚上",
+            "点",
+            ":",
+            "：",
+            "am",
+            "pm",
+        )
+        return any(term in lowered for term in reminder_terms) and any(term in lowered for term in time_terms)
+
+    def _looks_like_apple_reminder_followup(self, text: str) -> bool:
+        """Return whether a short follow-up likely fills a reminder request."""
+        raw = (text or "").strip()
+        if not raw:
+            return False
+
+        lowered = raw.lower()
+        reminder_terms = ("reminder", "提醒事项", "提醒我", "提醒")
+        if any(term in lowered for term in reminder_terms):
+            return True
+
+        acknowledgements = {"好", "好的", "可以", "行", "ok", "okay", "yes", "继续"}
+        if lowered in acknowledgements:
+            return False
+
+        # Short content-only replies such as "起床提醒" or "睡觉" often answer
+        # the bot's previous reminder clarification. Avoid carrying this across
+        # long unrelated messages.
+        return len(raw) <= 24 and not raw.startswith("/")
+
+    def _recent_history_mentions_apple_reminder(self, history: List[Dict[str, Any]], *, max_messages: int = 8) -> bool:
+        """Return whether recent conversation context is still about Apple Reminders."""
+        if not history:
+            return False
+
+        for msg in reversed(history[-max_messages:]):
+            if msg.get("role") != "user":
+                continue
+            content = msg.get("content")
+            if isinstance(content, str) and self._mentions_apple_reminder(content):
+                return True
+        return False
+
+    def _add_apple_reminder_context_note(self, event: MessageEvent) -> MessageEvent:
+        """Attach the compact Apple Reminders execution hint to a message event."""
+        note = (
+            '[IMPORTANT: The user explicitly mentioned Apple Reminder from the messaging gateway. '
+            'This is usually a direct, low-complexity Apple Reminders task. '
+            'When the reminder content and time are clear, execute it with remindctl, '
+            'briefly verify the result, and then reply concisely. '
+            'Do not call clarify from messaging gateways; if something is truly missing, ask a normal plain-text question. '
+            'Do not use browser/iCloud for Apple Reminders; use remindctl from terminal only. '
+            'If direct remindctl is blocked by Not determined, Denied, or Mach/TCC errors, retry the same remindctl arguments via '
+            'python /Users/rl_home/.hermes/hermes-agent/tools/remindctl_terminal_broker.py, which runs remindctl through the already-authorized Terminal.app. '
+            'Do not answer with instructions only. '
+            'If remindctl reports Not determined, Denied, or a macOS TCC/Mach error, '
+            'report that Reminders authorization is required instead of claiming success.]'
+        )
+        channel_prompt = (event.channel_prompt or "").strip()
+        if note in channel_prompt:
+            return event
+        channel_prompt = f"{channel_prompt}\n\n{note}".strip() if channel_prompt else note
+        return dataclasses.replace(event, channel_prompt=channel_prompt)
+
+    def _mentions_gbrain_ingestion(self, text: str) -> bool:
+        """Return whether the message asks for durable GBrain/Obsidian capture."""
+        raw = (text or "").strip().lower()
+        if not raw:
+            return False
+
+        durable_words = (
+            "obsidian",
+            "gbrain",
+            "vault",
+            "memory store",
+            "knowledge base",
+            "保存",
+            "存入",
+            "写入",
+            "记录",
+            "记入",
+            "笔记",
+            "知识库",
+            "长期记忆",
+        )
+        return any(word in raw for word in durable_words)
+
+    def _annotate_gbrain_ingestion_context(self, event: MessageEvent) -> MessageEvent:
+        """Steer durable-memory requests through GBrain before Obsidian writes."""
+        if not self._mentions_gbrain_ingestion(event.text or ""):
+            return event
+
+        note = (
+            "[IMPORTANT: The user message appears to request durable memory, Obsidian, "
+            "or GBrain capture from the messaging gateway. Preserve this architecture: "
+            "Adapter Layer -> Normalizer -> Hermes Router -> GBrain Processing "
+            "(classify, summarize, entities, relations, embeddings, dedupe) -> "
+            "Memory Store (vector, graph, jsonl) -> Markdown Renderer -> Obsidian Vault. "
+            "Prefer the obsidian-gbrain toolset / obsidian_ingest or gbrain_ingest path. "
+            "Do not create ad-hoc Markdown files directly unless the GBrain ingestion tool is unavailable.]"
+        )
+        channel_prompt = (event.channel_prompt or "").strip()
+        channel_prompt = f"{channel_prompt}\n\n{note}".strip() if channel_prompt else note
+        return dataclasses.replace(event, channel_prompt=channel_prompt)
+
+    def _annotate_apple_reminder_context(self, event: MessageEvent) -> MessageEvent:
+        """Inject a short Apple Reminders execution hint for explicit requests.
+
+        Keep this annotation deliberately compact. Loading the full skill body
+        into ``channel_prompt`` makes simple reminder requests look much more
+        complex to the entry router, which can unnecessarily promote them onto
+        the heavier model.
+        """
+        if not self._mentions_apple_reminder(event.text or ""):
+            return event
+
+        return self._add_apple_reminder_context_note(event)
+
+    def _response_claims_apple_reminder_success(self, response: str) -> bool:
+        """Return whether a reply text claims an Apple Reminder succeeded."""
+        raw = (response or "").strip().lower()
+        if not raw:
+            return False
+
+        success_markers = (
+            "命令已执行成功",
+            "已验证提醒是否创建成功",
+            "提醒已成功创建",
+            "提醒已成功",
+            "已成功为您创建",
+            "已设置为",
+            "已经创建这个提醒",
+            "created successfully",
+            "successfully created",
+            "verified reminder",
+        )
+        return any(marker in raw for marker in success_markers)
+
+    def _agent_messages_include_successful_remindctl(self, messages: List[Dict[str, Any]]) -> bool:
+        """Return whether this turn contains a real successful remindctl tool run."""
+        if not messages:
+            return False
+
+        remindctl_tool_call_ids = set()
+        for msg in messages:
+            if msg.get("role") != "assistant":
+                continue
+            for tc in msg.get("tool_calls") or []:
+                func = tc.get("function") or {}
+                if str(func.get("name") or "") != "terminal":
+                    continue
+                args = str(func.get("arguments") or "")
+                if "remindctl" in args:
+                    tcid = str(tc.get("id") or tc.get("call_id") or "").strip()
+                    if tcid:
+                        remindctl_tool_call_ids.add(tcid)
+
+        if not remindctl_tool_call_ids:
+            return False
+
+        for msg in messages:
+            if msg.get("role") != "tool":
+                continue
+            tcid = str(msg.get("tool_call_id") or "").strip()
+            if tcid not in remindctl_tool_call_ids:
+                continue
+            content = msg.get("content")
+            if not isinstance(content, str) or not content.strip():
+                continue
+            try:
+                payload = json.loads(content)
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                if payload.get("exit_code") == 0 and not payload.get("error"):
+                    return True
+
+        return False
+
     # -- Voice mode persistence ------------------------------------------
 
     _VOICE_MODE_PATH = _hermes_home / "gateway_voice_mode.json"
@@ -5326,6 +5536,10 @@ class GatewayRunner:
         # Otherwise control/session commands like /new or /help get silently
         # consumed as update answers instead of being dispatched normally.
         _quick_key = self._session_key_for_source(source)
+        if not is_internal:
+            event = self._annotate_apple_reminder_context(event)
+            event = self._annotate_gbrain_ingestion_context(event)
+            source = event.source
         _update_prompts = getattr(self, "_update_prompt_pending", {})
         if _update_prompts.get(_quick_key):
             raw = (event.text or "").strip()
@@ -6652,6 +6866,19 @@ class GatewayRunner:
 
         # Load conversation history from transcript
         history = self.session_store.load_transcript(session_entry.session_id)
+        apple_reminder_context_active = self._mentions_apple_reminder(event.text or "")
+        if (
+            not apple_reminder_context_active
+            and self._recent_history_mentions_apple_reminder(history)
+            and self._looks_like_apple_reminder_followup(event.text or "")
+        ):
+            apple_reminder_context_active = True
+            event = self._add_apple_reminder_context_note(event)
+            logger.info(
+                "Apple Reminder follow-up context restored for session=%s platform=%s",
+                session_key or "",
+                _platform_name,
+            )
         
         # -----------------------------------------------------------------
         # Session hygiene: auto-compress pathologically large transcripts
@@ -7131,6 +7358,25 @@ class GatewayRunner:
             response = _normalize_empty_agent_response(
                 agent_result, response, history_len=len(history),
             )
+
+            # Guard against false Apple Reminder success claims. Some models
+            # may narrate a remindctl command and claim it succeeded without
+            # ever issuing a tool call. Only treat reminder creation as
+            # successful when this turn includes a real remindctl tool result.
+            if (
+                apple_reminder_context_active
+                and self._response_claims_apple_reminder_success(response)
+                and not self._agent_messages_include_successful_remindctl(agent_messages)
+            ):
+                logger.warning(
+                    "Apple Reminder response claimed success without a successful remindctl tool result; overriding reply. session=%s",
+                    session_key or "",
+                )
+                response = (
+                    "⚠️ 我这次没有真正创建成功 Apple Reminder。"
+                    "刚才那条成功提示不可靠，因为本轮没有拿到 remindctl 的实际成功结果。\n\n"
+                    "请稍后重试；如果仍然失败，需要检查本机 Reminders 授权或 remindctl 运行状态。"
+                )
 
             # If the agent's session_id changed during compression, update
             # session_entry so transcript writes below go to the right session.

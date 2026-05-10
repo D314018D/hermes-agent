@@ -32,7 +32,7 @@ _HERMES_CORE_TOOLS = [
     # Web
     "web_search", "web_extract",
     # Terminal + process management
-    "terminal", "process",
+    "terminal", "process", "remindctl", "apple_notes",
     # File manipulation
     "read_file", "write_file", "patch", "search_files",
     # Vision + image generation
@@ -116,7 +116,7 @@ TOOLSETS = {
 
     "terminal": {
         "description": "Terminal/command execution and process management tools",
-        "tools": ["terminal", "process"],
+        "tools": ["terminal", "process", "remindctl", "apple_notes"],
         "includes": []
     },
     
@@ -190,6 +190,24 @@ TOOLSETS = {
         "description": "Persistent memory across sessions (personal notes + user profile)",
         "tools": ["memory"],
         "includes": []
+    },
+
+    "gbrain": {
+        "description": "GBrain-first durable knowledge ingestion for memory and knowledge-base capture",
+        "tools": ["gbrain_ingest"],
+        "includes": []
+    },
+
+    "obsidian": {
+        "description": "Obsidian vault note writing after GBrain processing",
+        "tools": ["obsidian_write_note"],
+        "includes": []
+    },
+
+    "obsidian-gbrain": {
+        "description": "Durable GBrain processing plus Obsidian Markdown rendering",
+        "tools": [],
+        "includes": ["gbrain", "obsidian"]
     },
     
     "session_search": {

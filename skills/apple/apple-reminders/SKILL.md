@@ -94,5 +94,9 @@ Accepted by `--due` and date filters:
 ## Rules
 
 1. When user says "remind me", clarify: Apple Reminders (syncs to phone) vs agent cronjob alert
-2. Always confirm reminder content and due date before creating
-3. Use `--json` for programmatic parsing
+2. Choose this skill only when the conversation makes Apple Reminders the appropriate destination; do not rely on a gateway hard route
+3. When you choose this skill from Telegram, Weixin, or the messaging gateway, do not answer with instructions only; run the terminal command that creates, updates, lists, completes, or deletes the reminder
+4. If direct `remindctl` returns `Not determined`, `Denied`, or a macOS Mach/TCC error, retry the same arguments via `python /Users/rl_home/.hermes/hermes-agent/tools/remindctl_terminal_broker.py ...`; this runs `remindctl` through the already-authorized Terminal.app and waits for the real exit code
+5. After creating or updating a reminder, verify with `remindctl <date> --plain` or another precise list command and report the actual result or error
+6. If the requested reminder content and due date are already clear from the conversation, create it without asking for another confirmation
+7. Use `--json` for programmatic parsing
