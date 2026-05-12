@@ -55,7 +55,7 @@ Current health check result:
 Use the following branch model:
 
 ```text
-origin/main
+upstream/main
   = official NousResearch Hermes Agent source
 
 main
@@ -64,7 +64,7 @@ main
 richard/hermes-local
   = Richard's Mac mini running version with local custom changes
 
-myfork/richard/hermes-local
+origin/richard/hermes-local
   = Richard's remote backup branch on his own GitHub fork
 
 codex/*
@@ -87,19 +87,16 @@ richard/hermes-local
 
 ## Remote Strategy
 
-The official remote should remain:
+The standard GitHub fork remotes should be:
 
 ```bash
-origin -> https://github.com/NousResearch/hermes-agent.git
+origin -> https://github.com/<RICHARD_GITHUB_USERNAME>/hermes-agent.git
+upstream -> https://github.com/NousResearch/hermes-agent.git
 ```
 
-Because Richard does not have permission to push to the official repo, add Richard's own fork as a second remote:
-
-```bash
-myfork -> https://github.com/<RICHARD_GITHUB_USERNAME>/hermes-agent.git
-```
-
-Do not rename or remove `origin`.
+Push to `origin`.
+Fetch from `upstream`.
+Never push to `upstream`.
 
 ---
 
@@ -123,13 +120,7 @@ git status
 git branch --show-current
 ```
 
-Add Richard's fork as `myfork`:
-
-```bash
-git remote add myfork https://github.com/<RICHARD_GITHUB_USERNAME>/hermes-agent.git
-```
-
-Verify remotes:
+Verify the standard remotes:
 
 ```bash
 git remote -v
@@ -138,15 +129,15 @@ git remote -v
 Expected structure:
 
 ```text
-origin  https://github.com/NousResearch/hermes-agent.git
-myfork  https://github.com/<RICHARD_GITHUB_USERNAME>/hermes-agent.git
+origin    https://github.com/<RICHARD_GITHUB_USERNAME>/hermes-agent.git
+upstream  https://github.com/NousResearch/hermes-agent.git
 ```
 
 Push the local running branch to Richard's fork:
 
 ```bash
 git switch richard/hermes-local
-git push -u myfork richard/hermes-local
+git push -u origin richard/hermes-local
 ```
 
 After push, verify:
@@ -184,9 +175,10 @@ Use this process when official Hermes has a new release.
 ```bash
 cd /Users/rl_home/.hermes/hermes-agent
 
-git fetch origin
+git fetch upstream
 git switch main
-git pull --ff-only origin main
+git pull --ff-only upstream main
+git push origin main
 ```
 
 `main` must stay clean and only follow official Hermes.
@@ -246,10 +238,10 @@ Also test key local functions:
 Only push the local branch to Richard's own fork:
 
 ```bash
-git push myfork richard/hermes-local
+git push origin richard/hermes-local
 ```
 
-Do not push to `origin`.
+Do not push to `upstream`.
 
 ---
 
@@ -269,10 +261,10 @@ git switch richard/hermes-local
 git merge --no-ff codex/<task-name>
 ```
 
-Then test Hermes and push only to `myfork`:
+Then test Hermes and push only to `origin`:
 
 ```bash
-git push myfork richard/hermes-local
+git push origin richard/hermes-local
 ```
 
 Do not merge Codex branches into `main`.
@@ -311,7 +303,7 @@ Expected response:
 After rollback, push the corrected branch to Richard's fork only if Richard approves:
 
 ```bash
-git push myfork richard/hermes-local --force-with-lease
+git push origin richard/hermes-local --force-with-lease
 ```
 
 Do not use plain `--force`.
@@ -323,14 +315,14 @@ Do not use plain `--force`.
 Do not run these unless Richard explicitly approves:
 
 ```bash
-git push origin main
-git push origin richard/hermes-local
+git push upstream main
+git push upstream richard/hermes-local
 git push --force
 git reset --hard main
 git merge codex/* main
 git branch -D richard/hermes-local
-git remote remove origin
-git remote rename origin upstream
+git remote remove upstream
+git remote rename upstream origin
 ```
 
 ---
@@ -346,6 +338,7 @@ git branch -vv
 git log --oneline --decorate --graph -20
 git remote -v
 git fetch origin
+git fetch upstream
 curl http://localhost:<PORT>/health
 ```
 
@@ -358,14 +351,14 @@ Richard's local Hermes repo must follow this rule:
 ```text
 official Hermes updates flow into main
 main updates flow into richard/hermes-local
-richard/hermes-local is pushed only to myfork
+richard/hermes-local is pushed only to origin
 main is never polluted by local custom changes
 ```
 
 The safe upgrade direction is:
 
 ```text
-origin/main -> main -> richard/hermes-local -> myfork/richard/hermes-local
+upstream/main -> main -> richard/hermes-local -> origin/richard/hermes-local
 ```
 
 Never reverse this direction.
