@@ -8,6 +8,23 @@ from typing import Iterator
 import fcntl
 
 
+def bun_executable() -> str | None:
+    found = shutil.which("bun")
+    if found:
+        return found
+
+    candidates = [
+        Path.home() / ".local" / "bin" / "bun",
+        Path.home() / ".bun" / "bin" / "bun",
+        Path("/opt/homebrew/bin/bun"),
+        Path("/usr/local/bin/bun"),
+    ]
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file():
+            return str(candidate)
+    return None
+
+
 def gbrain_executable() -> str | None:
     found = shutil.which("gbrain")
     if found:
@@ -23,6 +40,26 @@ def gbrain_executable() -> str | None:
         if candidate.exists() and candidate.is_file():
             return str(candidate)
     return None
+
+
+def _requires_bun(script_path: str) -> bool:
+    try:
+        with open(script_path, "r", encoding="utf-8") as handle:
+            first_line = handle.readline(200)
+    except OSError:
+        return False
+    return "env bun" in first_line or first_line.rstrip().endswith("/bun")
+
+
+def gbrain_command(args: list[str]) -> list[str] | None:
+    gbrain = gbrain_executable()
+    if not gbrain:
+        return None
+    if _requires_bun(gbrain):
+        bun = bun_executable()
+        if bun:
+            return [bun, gbrain, *args]
+    return [gbrain, *args]
 
 
 @contextmanager
@@ -52,11 +89,10 @@ def run_gbrain_command(
     lock_timeout_seconds: int = 120,
     command_timeout_seconds: int | None = None,
 ) -> dict:
-    gbrain = gbrain_executable()
-    if not gbrain:
+    cmd = gbrain_command(args)
+    if not cmd:
         return {"ok": False, "skipped": True, "reason": "gbrain not found on PATH"}
 
-    cmd = [gbrain, *args]
     try:
         with gbrain_lock(lock_timeout_seconds):
             result = subprocess.run(

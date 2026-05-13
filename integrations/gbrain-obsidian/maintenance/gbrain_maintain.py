@@ -1,22 +1,23 @@
 import subprocess
 
-from .gbrain_cli import gbrain_executable, gbrain_lock
+from .gbrain_cli import gbrain_command, gbrain_lock
 
 
 def run_maintenance() -> list[dict]:
-    gbrain = gbrain_executable()
-    if not gbrain:
-        return [{"cmd": "gbrain", "ok": True, "skipped": True, "stdout": "GBRAIN_SKIPPED"}]
-    commands = [
-        [gbrain, "embed", "--stale"],
-        [gbrain, "extract", "links", "--source", "db"],
-        [gbrain, "extract", "timeline", "--source", "db"],
-        [gbrain, "stats"],
+    command_args = [
+        ["embed", "--stale"],
+        ["extract", "links", "--source", "db"],
+        ["extract", "timeline", "--source", "db"],
+        ["stats"],
     ]
+    commands = [gbrain_command(args) for args in command_args]
+    if any(cmd is None for cmd in commands):
+        return [{"cmd": "gbrain", "ok": True, "skipped": True, "stdout": "GBRAIN_SKIPPED"}]
     results = []
     try:
         with gbrain_lock():
             for cmd in commands:
+                assert cmd is not None
                 result = subprocess.run(cmd, text=True, capture_output=True, check=False, timeout=300)
                 results.append({
                     "cmd": " ".join(cmd),
