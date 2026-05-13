@@ -1,0 +1,49 @@
+canonical_page_types:
+  project:
+    directory: "03-projects"
+    required_sections:
+      - "Compiled Truth"
+      - "Current Status"
+      - "Timeline"
+      - "References"
+  person:
+    directory: "01-people"
+    required_sections:
+      - "Compiled Truth"
+      - "Relationships"
+      - "Timeline"
+      - "References"
+  company:
+    directory: "02-companies"
+    required_sections:
+      - "Compiled Truth"
+      - "Key Contacts"
+      - "Projects"
+      - "Timeline"
+      - "References"
+  decision:
+    directory: "05-decisions"
+    required_sections:
+      - "Decision"
+      - "Reason"
+      - "Impact"
+      - "Timeline"
+      - "References"
+  meeting:
+    directory: "04-meetings"
+    required_sections:
+      - "Summary"
+      - "Attendees"
+      - "Actions"
+      - "Timeline"
+      - "References"
+
+timeline:
+  append_only: true
+  date_heading_format: "YYYY-MM-DD"
+  require_source: true
+
+compiled_truth:
+  max_length_chars: 1200
+  update_policy: "rewrite_from_existing_truth_plus_new_evidence"
+
