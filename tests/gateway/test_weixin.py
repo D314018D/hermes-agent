@@ -22,7 +22,7 @@ def _make_adapter() -> WeixinAdapter:
         PlatformConfig(
             enabled=True,
             token="test-token",
-            extra={"account_id": "test-account"},
+            extra={"account_id": "test-account", "dm_policy": "open"},
         )
     )
 
