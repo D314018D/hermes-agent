@@ -19,8 +19,8 @@ DELEGATE_HERMES_ROUTE = "delegate_hermes_complex"
 VISION_QWEN_ROUTE = "vision_qwen_vl"
 TTS_QWEN_ROUTE = "tts_qwen"
 
-QWEN_BRAIN_MODEL = "Qwen2.5-7B-Instruct-4bit"
-HERMES_AGENT_MODEL = "Hermes-3-Llama-3.1-8B-4bit"
+QWEN_BRAIN_MODEL = "Qwen3.5-4B-OptiQ-4bit"
+HERMES_AGENT_MODEL = "Qwen3.5-9B-OptiQ-4bit"
 QWEN_VISION_MODEL = "Qwen3-VL-4B-Instruct-MLX-4bit"
 QWEN_TTS_MODEL = "Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit"
 LOCAL_PROVIDER = "custom"
@@ -42,6 +42,16 @@ COMPLEX_WORDS = (
 )
 TTS_WORDS = ("tts", "speak", "read aloud", "voice", "朗读", "语音", "念出来", "配音")
 VISION_WORDS = ("image", "photo", "screenshot", "vision", "图片", "照片", "截图", "看图")
+HIGH_VALUE_WORDS = (
+    "decision", "decided", "agreed", "agreement", "deadline", "eta", "contract", "budget",
+    "quote", "pricing", "price", "payment", "invoice", "customer", "client", "project",
+    "risk", "issue", "blocker", "milestone", "deliver", "delivery", "follow up", "next step",
+    "todo", "action item", "meeting", "summary",
+    "决定", "确定", "同意", "合同", "报价", "价格", "金额", "预算", "付款", "客户", "项目",
+    "风险", "问题", "里程碑", "交付", "跟进", "下一步", "待办", "行动项", "会议", "纪要",
+    "需求", "进展", "样机", "测试", "认证", "排期", "时间", "截止",
+)
+HIGH_VALUE_ENTITY_HINTS = ("woolworths", "smart trolley", "n70", "riti", "pty ltd")
 
 
 @dataclass(frozen=True)
@@ -76,6 +86,7 @@ def route_model(
     has_image = _has_image_input(normalized_text, normalized_modality, attachments)
     wants_audio = bool(wants_tts) or any(word in normalized_text for word in TTS_WORDS)
     wants_obsidian_write = _wants_obsidian_write(normalized_text)
+    auto_knowledge_candidate = _is_high_value_knowledge_candidate(normalized_text, source=source)
     is_complex = _is_complex_request(normalized_text)
 
     if wants_obsidian_write:
@@ -93,6 +104,24 @@ def route_model(
                 "tool": "ingestion_pipeline",
                 "target_hint": "obsidian-vault/00-inbox or resolver-selected page",
                 "switch_main_model": False,
+            },
+        )
+    elif auto_knowledge_candidate:
+        route = ModelRoute(
+            route=TOOL_FIRST_OBSIDIAN_ROUTE,
+            model=QWEN_BRAIN_MODEL,
+            reason="Qwen detected high-value knowledge in chat content; promote through ingestion without requiring an explicit save command.",
+            confidence=0.72,
+            tool_action="run_ingest",
+            tool_entrypoint="python3 scripts/ingest.py -",
+            metadata={
+                "selected_by": "qwen_brain_router",
+                "forced_router": bool(force_router),
+                "should_call_tool": True,
+                "tool": "ingestion_pipeline",
+                "target_hint": "review-first Gbrain/Obsidian promotion",
+                "switch_main_model": False,
+                "auto_promoted": True,
             },
         )
     elif has_image:
@@ -244,6 +273,32 @@ def _is_complex_request(text: str) -> bool:
     if len(text) > 1200:
         return True
     return any(word in text for word in COMPLEX_WORDS)
+
+
+def _is_high_value_knowledge_candidate(text: str, source: str = "manual") -> bool:
+    if source not in {"wechat", "weixin"}:
+        return False
+    if not text or len(text.strip()) < 18:
+        return False
+    if _wants_obsidian_write(text):
+        return False
+    score = 0
+    if len(text) >= 48:
+        score += 1
+    if any(word in text for word in HIGH_VALUE_WORDS):
+        score += 2
+    if any(word in text for word in HIGH_VALUE_ENTITY_HINTS):
+        score += 1
+    if any(token in text for token in ("$", "¥", "￥", "%", "万", "亿", "k", "m")):
+        score += 1
+    digit_count = sum(ch.isdigit() for ch in text)
+    if digit_count >= 2:
+        score += 1
+    if any(token in text for token in (":", "；", ";", "\n", "1.", "2.", "3.", "一、", "二、")):
+        score += 1
+    if any(token in text for token in ("明天", "下周", "本月", "today", "tomorrow", "next week")):
+        score += 1
+    return score >= 3
 
 
 def _qwen_router_choice(

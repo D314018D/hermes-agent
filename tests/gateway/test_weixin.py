@@ -370,6 +370,7 @@ class TestWeixinChunkDelivery:
         adapter._token = "test-token"
         adapter._base_url = "https://weixin.example.com"
         adapter._token_store.get = lambda account_id, chat_id: "ctx-token"
+        adapter._min_send_interval_seconds = 0
         return adapter
 
     @patch("gateway.platforms.weixin.asyncio.sleep", new_callable=AsyncMock)
@@ -410,6 +411,64 @@ class TestWeixinChunkDelivery:
         retry = send_message_mock.await_args_list[2].kwargs
         assert first_try["text"] == retry["text"]
         assert first_try["client_id"] == retry["client_id"]
+
+    @patch("gateway.platforms.weixin.asyncio.sleep", new_callable=AsyncMock)
+    @patch("gateway.platforms.weixin._send_message", new_callable=AsyncMock)
+    def test_send_uses_extended_rate_limit_backoff(self, send_message_mock, sleep_mock):
+        adapter = WeixinAdapter(
+            PlatformConfig(
+                enabled=True,
+                token="test-token",
+                extra={
+                    "account_id": "test-account",
+                    "send_chunk_retries": 1,
+                    "rate_limit_retry_backoff_seconds": 9.0,
+                    "min_send_interval_seconds": 0,
+                },
+            )
+        )
+        adapter._session = object()
+        adapter._send_session = adapter._session
+        adapter._token = "test-token"
+        adapter._base_url = "https://weixin.example.com"
+        adapter._token_store.get = lambda account_id, chat_id: "ctx-token"
+
+        send_message_mock.side_effect = [
+            {"ret": -2, "errmsg": "rate limited"},
+            {"ret": 0},
+        ]
+
+        result = asyncio.run(adapter.send("wxid_test123", "only one chunk"))
+
+        assert result.success is True
+        sleep_mock.assert_any_await(9.0)
+
+
+class TestWeixinRateLimitHandling:
+    def _connected_adapter(self) -> WeixinAdapter:
+        adapter = _make_adapter()
+        adapter._session = object()
+        adapter._send_session = adapter._session
+        adapter._token = "test-token"
+        adapter._base_url = "https://weixin.example.com"
+        adapter._token_store.get = lambda account_id, chat_id: "ctx-token"
+        adapter._min_send_interval_seconds = 0
+        return adapter
+
+    @pytest.mark.asyncio
+    async def test_send_with_retry_suppresses_plaintext_fallback_on_rate_limit(self):
+        adapter = self._connected_adapter()
+        adapter.send = AsyncMock(
+            return_value=SendResult(
+                success=False,
+                error="iLink sendmessage rate limited: ret=-2 errcode=None errmsg=rate limited",
+            )
+        )
+
+        result = await adapter._send_with_retry("wxid_test123", "hello")
+
+        assert result.success is False
+        assert adapter.send.await_count == 1
 
 
 class TestWeixinOutboundMedia:

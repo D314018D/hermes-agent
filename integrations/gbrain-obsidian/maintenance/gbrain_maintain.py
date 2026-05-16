@@ -1,6 +1,6 @@
 import subprocess
 
-from .gbrain_cli import gbrain_command, gbrain_lock
+from .gbrain_cli import gbrain_command, gbrain_env, gbrain_lock
 
 
 def run_maintenance() -> list[dict]:
@@ -18,7 +18,7 @@ def run_maintenance() -> list[dict]:
         with gbrain_lock():
             for cmd in commands:
                 assert cmd is not None
-                result = subprocess.run(cmd, text=True, capture_output=True, check=False, timeout=300)
+                result = subprocess.run(cmd, text=True, capture_output=True, check=False, timeout=300, env=gbrain_env())
                 results.append({
                     "cmd": " ".join(cmd),
                     "ok": result.returncode == 0,

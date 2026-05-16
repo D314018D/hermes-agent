@@ -1,0 +1,7 @@
+{"message":"你好","expected_route":"local","expected_task_type":"quick_chat","expected_rule":"default_short_chat"}
+{"message":"今早的定时任务没有完成 重新做","expected_route":"local","expected_task_type":"reminders","expected_rule":"zh_reminders_term:定时任务"}
+{"message":"记录：正好跟骏总聊到未来T2 T23的客户管理事情","expected_route":"local","expected_task_type":"memory","expected_rule":"zh_memory_term:记录："}
+{"message":"检查一下gbain到底出了什么问题，如果可以查出来是什么问题，请进行修复","expected_route":"cloud","expected_task_type":"debugging","expected_rule":"zh_debugging_term:出了什么问题"}
+{"message":"修复这个问题，通过走云的方式，用codex修复","expected_route":"cloud","expected_task_type":"debugging","expected_rule":"force_cloud_terms:codex"}
+{"message":"用 codex 给我出一份 Hermes 本地/云端分流的规划方案","expected_route":"cloud","expected_task_type":"planning","expected_rule":"force_cloud_terms:codex"}
+{"message":"用 codex 帮我排查 Hermes 的报错日志，定位为什么微信发不出去","expected_route":"hybrid","expected_task_type":"debugging","expected_rule":"force_cloud_terms:codex"}

@@ -2105,15 +2105,57 @@ class GatewayRunner:
 
         return model, runtime_kwargs
 
-    def _resolve_turn_agent_config(self, user_message: str, model: str, runtime_kwargs: dict) -> dict:
+    def _resolve_turn_agent_config(
+        self,
+        user_message: str,
+        model: str,
+        runtime_kwargs: dict,
+        user_config: dict | None = None,
+    ) -> dict:
         """Build the effective model/runtime config for a single turn.
 
-        Always uses the session's primary model/provider.  If `/fast` is
-        enabled and the model supports Priority Processing / Anthropic fast
-        mode, attach `request_overrides` so the API call is marked
-        accordingly.
+        Uses the session's primary model/provider by default.  When
+        entry_router is enabled, simple turns stay on the entry model and
+        complex turns use complex_model.  If `/fast` is enabled and the model
+        supports Priority Processing / Anthropic fast mode, attach
+        `request_overrides` so the API call is marked accordingly.
         """
         from hermes_cli.models import resolve_fast_mode_overrides
+
+        def _model_name_and_context(value):
+            if isinstance(value, dict):
+                return value.get("default") or value.get("model"), value.get("context_length")
+            if isinstance(value, str):
+                return value, None
+            return None, None
+
+        cfg = user_config if isinstance(user_config, dict) else {}
+        model_cfg = cfg.get("model") if isinstance(cfg.get("model"), dict) else {}
+        entry_router_cfg = cfg.get("entry_router") if isinstance(cfg.get("entry_router"), dict) else {}
+        top_complex_cfg = cfg.get("complex_model")
+
+        route_model = model
+        route_context_length = model_cfg.get("context_length") if isinstance(model_cfg, dict) else None
+        if entry_router_cfg.get("enabled"):
+            entry_model = entry_router_cfg.get("entry_model") or model_cfg.get("default") or model
+            complex_model, complex_context_length = _model_name_and_context(top_complex_cfg)
+            if not complex_model:
+                complex_model, complex_context_length = _model_name_and_context(
+                    entry_router_cfg.get("complex_model")
+                )
+            if complex_model:
+                use_complex = False
+                try:
+                    from routing.local_cloud.classifier import classify_message
+                    decision = classify_message(user_message or "", cfg)
+                    use_complex = decision.route in {"cloud", "hybrid", "ask"}
+                except Exception as _route_err:
+                    logger.debug("entry_router classification failed: %s", _route_err)
+                if use_complex:
+                    route_model = complex_model
+                    route_context_length = complex_context_length
+                else:
+                    route_model = entry_model
 
         runtime = {
             "api_key": runtime_kwargs.get("api_key"),
@@ -2123,17 +2165,19 @@ class GatewayRunner:
             "command": runtime_kwargs.get("command"),
             "args": list(runtime_kwargs.get("args") or []),
             "credential_pool": runtime_kwargs.get("credential_pool"),
+            "config_context_length": route_context_length,
         }
         route = {
-            "model": model,
+            "model": route_model,
             "runtime": runtime,
             "signature": (
-                model,
+                route_model,
                 runtime["provider"],
                 runtime["base_url"],
                 runtime["api_mode"],
                 runtime["command"],
                 tuple(runtime["args"]),
+                route_context_length,
             ),
         }
 
@@ -10868,7 +10912,12 @@ class GatewayRunner:
             reasoning_config = self._resolve_session_reasoning_config(source=source)
             self._reasoning_config = reasoning_config
             self._service_tier = self._load_service_tier()
-            turn_route = self._resolve_turn_agent_config(prompt, model, runtime_kwargs)
+            turn_route = self._resolve_turn_agent_config(
+                prompt,
+                model,
+                runtime_kwargs,
+                user_config=user_config,
+            )
 
             # Enrich the prompt with image descriptions so the background
             # agent can see user-attached images (same as the main flow).
@@ -14005,6 +14054,11 @@ class GatewayRunner:
     _CACHE_BUSTING_CONFIG_KEYS: tuple = (
         ("model", "context_length"),
         ("model", "max_tokens"),
+        ("complex_model", "default"),
+        ("complex_model", "context_length"),
+        ("entry_router", "enabled"),
+        ("entry_router", "entry_model"),
+        ("entry_router", "complex_model"),
         ("compression", "enabled"),
         ("compression", "threshold"),
         ("compression", "target_ratio"),
@@ -15477,7 +15531,90 @@ class GatewayRunner:
                     log_message="interim_assistant_callback scheduling error",
                 )
 
-            turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
+            route_decision = None
+            try:
+                from routing.local_cloud import classify_message, write_route_decision
+
+                platform_value = getattr(source.platform, "value", str(source.platform))
+                decision = classify_message(
+                    message,
+                    user_config,
+                    platform=platform_value,
+                    session_id=session_id or "",
+                    session_key=session_key or "",
+                    history=history,
+                    context_prompt=combined_ephemeral,
+                )
+                route_decision = decision
+                if decision.enabled:
+                    write_route_decision(decision, user_config)
+                    logger.debug(
+                        "local/cloud route decision: mode=%s route=%s task=%s confidence=%.2f session=%s",
+                        decision.mode,
+                        decision.route,
+                        decision.task_type,
+                        decision.confidence,
+                        session_key or "",
+                    )
+            except Exception as _route_err:
+                logger.debug("shadow local/cloud route classification failed: %s", _route_err)
+
+            turn_route = self._resolve_turn_agent_config(
+                message,
+                model,
+                runtime_kwargs,
+                user_config=user_config,
+            )
+            if route_decision is not None and getattr(route_decision, "enabled", False):
+                try:
+                    from routing.local_cloud import resolve_active_route_runtime
+
+                    active_route = resolve_active_route_runtime(route_decision, user_config)
+                    if active_route is not None:
+                        turn_route["model"] = active_route.model
+                        turn_route["runtime"] = active_route.runtime
+                        turn_route["signature"] = (
+                            active_route.model,
+                            active_route.runtime.get("provider"),
+                            active_route.runtime.get("base_url"),
+                            active_route.runtime.get("api_mode"),
+                            active_route.runtime.get("command"),
+                            tuple(active_route.runtime.get("args") or []),
+                            active_route.runtime.get("config_context_length"),
+                        )
+                        try:
+                            from hermes_cli.models import resolve_fast_mode_overrides
+                            turn_route["request_overrides"] = (
+                                resolve_fast_mode_overrides(active_route.model)
+                                if getattr(self, "_service_tier", None)
+                                else {}
+                            ) or {}
+                        except Exception:
+                            turn_route["request_overrides"] = {}
+                        logger.info(
+                            "local/cloud route activated: route=%s task=%s provider=%s model=%s reason=%s session=%s",
+                            route_decision.route,
+                            route_decision.task_type,
+                            active_route.runtime.get("provider"),
+                            active_route.model,
+                            active_route.reason,
+                            session_key or "",
+                        )
+                except Exception as _active_route_err:
+                    split_cfg = (
+                        (user_config.get("agent") or {}).get("local_cloud_split") or {}
+                        if isinstance(user_config, dict)
+                        else {}
+                    )
+                    fail_closed = bool(split_cfg.get("fail_closed_to_local", True))
+                    logger.warning(
+                        "local/cloud route activation failed for route=%s task=%s; %s",
+                        getattr(route_decision, "route", ""),
+                        getattr(route_decision, "task_type", ""),
+                        _active_route_err,
+                    )
+                    if not fail_closed:
+                        raise
 
             # Check agent cache — reuse the AIAgent from the previous message
             # in this session to preserve the frozen system prompt and tool

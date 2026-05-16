@@ -1184,6 +1184,7 @@ class AIAgent:
         checkpoint_max_total_size_mb: int = 500,
         checkpoint_max_file_size_mb: int = 10,
         pass_session_id: bool = False,
+        config_context_length: int = None,
     ):
         """
         Initialize the AI Agent.
@@ -2183,8 +2184,12 @@ class AIAgent:
                     )
         self._session_init_model_config["max_tokens"] = self.max_tokens
 
-        # Read explicit context_length override from model config
-        if isinstance(_model_cfg, dict):
+        # Read explicit context_length override.  Gateway turn routing can pass
+        # a per-route override (for entry/complex model split); otherwise use
+        # the global model.context_length from config.yaml.
+        if config_context_length is not None:
+            _config_context_length = config_context_length
+        elif isinstance(_model_cfg, dict):
             _config_context_length = _model_cfg.get("context_length")
         else:
             _config_context_length = None
@@ -2357,7 +2362,24 @@ class AIAgent:
         # for reliable tool-calling workflows (64K tokens).
         from agent.model_metadata import MINIMUM_CONTEXT_LENGTH
         _ctx = getattr(self.context_compressor, "context_length", 0)
-        if _ctx and _ctx < MINIMUM_CONTEXT_LENGTH:
+        _allow_entry_router_small_context = False
+        try:
+            _entry_router_cfg = _agent_cfg.get("entry_router") if isinstance(_agent_cfg, dict) else None
+            _configured_model = _model_cfg.get("default") if isinstance(_model_cfg, dict) else None
+            _entry_model = (
+                _entry_router_cfg.get("entry_model")
+                if isinstance(_entry_router_cfg, dict)
+                else None
+            )
+            _allow_entry_router_small_context = (
+                isinstance(_entry_router_cfg, dict)
+                and bool(_entry_router_cfg.get("enabled"))
+                and bool(_entry_router_cfg.get("complex_model") or _agent_cfg.get("complex_model"))
+                and self.model in {m for m in (_configured_model, _entry_model) if m}
+            )
+        except Exception:
+            _allow_entry_router_small_context = False
+        if _ctx and _ctx < MINIMUM_CONTEXT_LENGTH and not _allow_entry_router_small_context:
             raise ValueError(
                 f"Model {self.model} has a context window of {_ctx:,} tokens, "
                 f"which is below the minimum {MINIMUM_CONTEXT_LENGTH:,} required "

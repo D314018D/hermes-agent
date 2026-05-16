@@ -19,6 +19,7 @@ import json
 import logging
 import mimetypes
 import os
+import random
 import re
 import secrets
 import struct
@@ -1210,6 +1211,19 @@ class WeixinAdapter(BasePlatformAdapter):
             extra.get("send_chunk_retry_delay_seconds")
             or os.getenv("WEIXIN_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
         )
+        self._rate_limit_retry_backoff_seconds = float(
+            extra.get("rate_limit_retry_backoff_seconds")
+            or os.getenv("WEIXIN_RATE_LIMIT_RETRY_BACKOFF_SECONDS", "8.0")
+        )
+        self._min_send_interval_seconds = float(
+            extra.get("min_send_interval_seconds")
+            or os.getenv("WEIXIN_MIN_SEND_INTERVAL_SECONDS", "5.0")
+        )
+        self._disable_plaintext_fallback_on_rate_limit = _coerce_bool(
+            extra.get("disable_plaintext_fallback_on_rate_limit")
+            or os.getenv("WEIXIN_DISABLE_PLAINTEXT_FALLBACK_ON_RATE_LIMIT"),
+            default=True,
+        )
         self._dm_policy = str(extra.get("dm_policy") or os.getenv("WEIXIN_DM_POLICY", "open")).strip().lower()
         self._group_policy = str(extra.get("group_policy") or os.getenv("WEIXIN_GROUP_POLICY", "disabled")).strip().lower()
         allow_from = extra.get("allow_from")
@@ -1225,6 +1239,8 @@ class WeixinAdapter(BasePlatformAdapter):
             or os.getenv("WEIXIN_SPLIT_MULTILINE_MESSAGES"),
             default=False,
         )
+        self._chat_send_locks: Dict[str, asyncio.Lock] = {}
+        self._chat_next_send_after: Dict[str, float] = {}
 
         if self._account_id and not self._token:
             persisted = load_weixin_account(hermes_home, self._account_id)
@@ -1569,6 +1585,21 @@ class WeixinAdapter(BasePlatformAdapter):
             content, self.MAX_MESSAGE_LENGTH, self._split_multiline_messages,
         )
 
+    @staticmethod
+    def _is_rate_limited_error(error: Optional[str]) -> bool:
+        lowered = str(error or "").lower()
+        return "rate limited" in lowered or "freq limit" in lowered
+
+    async def _wait_for_send_window(self, chat_id: str) -> None:
+        if self._min_send_interval_seconds <= 0:
+            return
+        now = time.monotonic()
+        wait_until = self._chat_next_send_after.get(chat_id, 0.0)
+        if wait_until > now:
+            await asyncio.sleep(wait_until - now)
+            now = time.monotonic()
+        self._chat_next_send_after[chat_id] = now + self._min_send_interval_seconds
+
     async def _send_text_chunk(
         self,
         *,
@@ -1588,6 +1619,7 @@ class WeixinAdapter(BasePlatformAdapter):
         retried_without_token = False
         for attempt in range(self._send_chunk_retries + 1):
             try:
+                await self._wait_for_send_window(chat_id)
                 resp = await _send_message(
                     self._send_session,
                     base_url=self._base_url,
@@ -1634,7 +1666,10 @@ class WeixinAdapter(BasePlatformAdapter):
                             )
                             if attempt >= self._send_chunk_retries:
                                 break
-                            wait = self._send_chunk_retry_delay_seconds * 3  # 3x backoff for rate limit
+                            wait = max(
+                                self._rate_limit_retry_backoff_seconds,
+                                self._send_chunk_retry_delay_seconds * 3,
+                            )
                             logger.warning(
                                 "[%s] rate limited for %s; backing off %.1fs before retry",
                                 self.name, _safe_id(chat_id), wait,
@@ -1698,37 +1733,118 @@ class WeixinAdapter(BasePlatformAdapter):
                 await self.send_document(chat_id=chat_id, file_path=path, metadata=metadata)
 
         try:
+            chat_lock = self._chat_send_locks.setdefault(chat_id, asyncio.Lock())
+            async with chat_lock:
             # Deliver extracted MEDIA: attachments first.
-            for media_path, is_voice in media_files:
-                try:
-                    await _deliver_media(media_path, is_voice)
-                except Exception as exc:
-                    logger.warning("[%s] media delivery failed for %s: %s", self.name, media_path, exc)
+                for media_path, is_voice in media_files:
+                    try:
+                        await _deliver_media(media_path, is_voice)
+                    except Exception as exc:
+                        logger.warning("[%s] media delivery failed for %s: %s", self.name, media_path, exc)
 
-            # Deliver bare local file paths.
-            for file_path in local_files:
-                try:
-                    await _deliver_media(file_path, is_voice=False)
-                except Exception as exc:
-                    logger.warning("[%s] local file delivery failed for %s: %s", self.name, file_path, exc)
+                # Deliver bare local file paths.
+                for file_path in local_files:
+                    try:
+                        await _deliver_media(file_path, is_voice=False)
+                    except Exception as exc:
+                        logger.warning("[%s] local file delivery failed for %s: %s", self.name, file_path, exc)
 
-            # Deliver text content.
-            chunks = [c for c in self._split_text(self.format_message(final_content)) if c and c.strip()]
-            for idx, chunk in enumerate(chunks):
-                client_id = f"hermes-weixin-{uuid.uuid4().hex}"
-                await self._send_text_chunk(
-                    chat_id=chat_id,
-                    chunk=chunk,
-                    context_token=context_token,
-                    client_id=client_id,
-                )
-                last_message_id = client_id
-                if idx < len(chunks) - 1 and self._send_chunk_delay_seconds > 0:
-                    await asyncio.sleep(self._send_chunk_delay_seconds)
+                # Deliver text content.
+                chunks = [c for c in self._split_text(self.format_message(final_content)) if c and c.strip()]
+                for idx, chunk in enumerate(chunks):
+                    client_id = f"hermes-weixin-{uuid.uuid4().hex}"
+                    await self._send_text_chunk(
+                        chat_id=chat_id,
+                        chunk=chunk,
+                        context_token=context_token,
+                        client_id=client_id,
+                    )
+                    last_message_id = client_id
+                    if idx < len(chunks) - 1 and self._send_chunk_delay_seconds > 0:
+                        await asyncio.sleep(self._send_chunk_delay_seconds)
             return SendResult(success=True, message_id=last_message_id)
         except Exception as exc:
             logger.error("[%s] send failed to=%s: %s", self.name, _safe_id(chat_id), exc)
             return SendResult(success=False, error=str(exc))
+
+    async def _send_with_retry(
+        self,
+        chat_id: str,
+        content: str,
+        reply_to: Optional[str] = None,
+        metadata: Any = None,
+        max_retries: int = 2,
+        base_delay: float = 2.0,
+    ) -> SendResult:
+        result = await self.send(
+            chat_id=chat_id,
+            content=content,
+            reply_to=reply_to,
+            metadata=metadata,
+        )
+
+        if result.success:
+            return result
+
+        error_str = result.error or ""
+        is_network = result.retryable or self._is_retryable_error(error_str)
+
+        if not is_network and self._is_timeout_error(error_str):
+            return result
+
+        if is_network:
+            for attempt in range(1, max_retries + 1):
+                delay = base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1)
+                logger.warning(
+                    "[%s] Send failed (attempt %d/%d, retrying in %.1fs): %s",
+                    self.name, attempt, max_retries, delay, error_str,
+                )
+                await asyncio.sleep(delay)
+                result = await self.send(
+                    chat_id=chat_id,
+                    content=content,
+                    reply_to=reply_to,
+                    metadata=metadata,
+                )
+                if result.success:
+                    logger.info("[%s] Send succeeded on retry %d", self.name, attempt)
+                    return result
+                error_str = result.error or ""
+                if not (result.retryable or self._is_retryable_error(error_str)):
+                    break
+            else:
+                logger.error(
+                    "[%s] Failed to deliver response after %d retries: %s",
+                    self.name, max_retries, error_str,
+                )
+                notice = (
+                    "\u26a0\ufe0f Message delivery failed after multiple attempts. "
+                    "Please try again \u2014 your request was processed but the response could not be sent."
+                )
+                try:
+                    await self.send(chat_id=chat_id, content=notice, reply_to=reply_to, metadata=metadata)
+                except Exception as notify_err:
+                    logger.debug("[%s] Could not send delivery-failure notice: %s", self.name, notify_err)
+                return result
+
+        if self._disable_plaintext_fallback_on_rate_limit and self._is_rate_limited_error(error_str):
+            logger.warning(
+                "[%s] send hit Weixin rate limit for %s; suppressing plain-text fallback",
+                self.name,
+                _safe_id(chat_id),
+            )
+            return result
+
+        logger.warning("[%s] Send failed: %s — trying plain-text fallback", self.name, error_str)
+        fallback_result = await self.send(
+            chat_id=chat_id,
+            content=f"(Response formatting failed, plain text:)\n\n{content[:3500]}",
+            reply_to=reply_to,
+            metadata=metadata,
+        )
+        if not fallback_result.success:
+            logger.error("[%s] Fallback send also failed: %s", self.name, fallback_result.error)
+        return fallback_result
 
     async def send_typing(self, chat_id: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         if not self._send_session or not self._token:

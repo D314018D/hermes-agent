@@ -23,6 +23,15 @@ Post-reboot smoke test for Hermes Agent. Gateway, oMLX, API, web search, and ing
 ## Current Status
 Post-reboot smoke test for Hermes Agent. Gateway, oMLX, API, web search, and ingestion pipeline were checked.
 
+## 2026-05-15 Stability Routing Update
+
+- Main local model: Qwen3.5-4B-OptiQ-4bit via http://127.0.0.1:8000/v1.
+- Complex local escalation model: Qwen3.5-9B-OptiQ-4bit.
+- Vision model: Qwen3-VL-4B-Instruct-MLX-4bit, on demand.
+- Lightweight auxiliary tasks: Qwen3.5-2B-OptiQ-4bit.
+- Cloud escalation: gpt-5.4 for high-value coding, architecture, research, and long-context work.
+- Local policy: prefer low memory pressure, single-request oMLX scheduling, review-first GBrain/Obsidian ingestion, and explicit escalation for complex tasks.
+
 ## Timeline
 
 ### 2026-04-25 — wechat/voice
@@ -208,3 +217,75 @@ Source: source_type=text; source_app=codex-smoke; captured_at=2026-05-06T22:36:0
 - Selected model: Hermes-3-Llama-3.1-8B-4bit
 - Tool action: none
 - Reason: Qwen marked the request as complex enough to delegate to Hermes for deeper multi-step reasoning.
+
+### 2026-05-15T15:51:16+10:00 - wechat/router
+
+- Router model: Qwen2.5-7B-Instruct-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen2.5-7B-Instruct-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.
+
+### 2026-05-15T15:51:27+10:00 - wechat/router
+
+- Router model: Qwen2.5-7B-Instruct-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen2.5-7B-Instruct-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.
+
+### 2026-05-15T22:30:21+10:00 - wechat/router
+
+- Router model: Qwen2.5-7B-Instruct-4bit
+- Selected route: direct_qwen
+- Selected model: Qwen2.5-7B-Instruct-4bit
+- Tool action: none
+- Reason: Qwen can answer directly without model escalation.
+
+### 2026-05-15T22:30:21+10:00 - wechat/router
+
+- Router model: Qwen2.5-7B-Instruct-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen2.5-7B-Instruct-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected high-value knowledge in chat content; promote through ingestion without requiring an explicit save command.
+
+### 2026-05-15T22:30:55+10:00 - wechat/router
+
+- Router model: Qwen2.5-7B-Instruct-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen2.5-7B-Instruct-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected high-value knowledge in chat content; promote through ingestion without requiring an explicit save command.
+
+### 2026-05-16T11:13:26+10:00 - wechat/router
+
+- Router model: Qwen3.5-4B-OptiQ-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen3.5-4B-OptiQ-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.
+
+### 2026-05-16T14:51:36+10:00 - wechat/router
+
+- Router model: Qwen3.5-4B-OptiQ-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen3.5-4B-OptiQ-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected high-value knowledge in chat content; promote through ingestion without requiring an explicit save command.
+
+### 2026-05-16T16:08:41+10:00 - wechat/router
+
+- Router model: Qwen3.5-4B-OptiQ-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen3.5-4B-OptiQ-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.
+
+### 2026-05-16T19:19:33+10:00 - wechat/router
+
+- Router model: Qwen3.5-4B-OptiQ-4bit
+- Selected route: tool_first_obsidian
+- Selected model: Qwen3.5-4B-OptiQ-4bit
+- Tool action: run_ingest
+- Reason: Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.

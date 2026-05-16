@@ -1,0 +1,5 @@
+# Sydney Weather Scheduler Cron Job
+# Install daily at 8:00 AM
+# Format: minute hour day month weekday user command
+
+*/0 8 * * * cd /Users/rl_home/.hermes/hermes-agent && python3 sydney_weather_fetcher.py >> /Users/rl_home/.hermes/hermes-agent/sydney_weather.log 2>&1

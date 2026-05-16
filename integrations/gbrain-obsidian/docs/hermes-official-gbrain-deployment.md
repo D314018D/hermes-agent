@@ -30,7 +30,7 @@ The active user plugin at `~/.hermes/plugins/obsidian-gbrain/` follows the offic
 ## Tools
 
 - `obsidian_ingest`: canonical GBrain-first durable memory ingestion; renders Markdown into Obsidian after processing
-- `gbrain_import`: imports the vault into GBrain
+- `gbrain_import`: imports the vault into GBrain; if the installed `gbrain` executable is Bun-based, Hermes resolves and invokes `bun` explicitly
 - `gbrain_maintain`: embeds stale entries, extracts links/timeline, returns stats
 - `gbrain_query`: queries GBrain before factual project/customer answers
 
@@ -65,6 +65,7 @@ Then verify inside Hermes:
 - Use `gbrain_import` for immediate index refresh after important writes.
 - Use `gbrain_maintain` for recurring rebuild/embedding/link/timeline maintenance.
 - GBrain CLI calls are serialized by `maintenance/gbrain_cli.py` so multiple Hermes entrypoints do not collide on PGLite's local lock.
+- Bun-backed `gbrain` shims require a resolvable `bun` binary; Hermes now treats missing Bun as an explicit dependency error instead of falling back to a brittle direct shim execution.
 - For high-concurrency production use, prefer a server database backend such as Postgres/Supabase over local PGLite.
 
 ## Current Live State

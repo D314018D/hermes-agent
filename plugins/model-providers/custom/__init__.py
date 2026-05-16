@@ -36,6 +36,8 @@ class CustomProfile(ProviderProfile):
             _enabled = reasoning_config.get("enabled", True)
             if _effort == "none" or _enabled is False:
                 extra_body["think"] = False
+                extra_body["enable_thinking"] = False
+                extra_body["thinking_budget"] = 0
 
         return extra_body, {}
 
