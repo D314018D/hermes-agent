@@ -16,6 +16,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT / "logs"
+AUDIT_LOGS = {
+    "delegate": "codex_delegate.jsonl",
+    "route": "router_decision.jsonl",
+    "api": "api_approval.jsonl",
+    "memory": "memory_candidate.jsonl",
+    "tool": "tool_calls.jsonl",
+}
 
 STATUSES = {
     "ok",
@@ -280,7 +287,58 @@ def _audit(context: ContextPack, status: str, files_changed: list[str] | None = 
         "memory_candidate_generated": True,
         "status": status,
     }
-    with (LOG_DIR / "codex_delegate.jsonl").open("a", encoding="utf-8") as handle:
+    _append_audit("delegate", event)
+    _append_audit(
+        "route",
+        {
+            "timestamp": event["timestamp"],
+            "task_hash": context.task_hash,
+            "privacy_level": context.privacy_level,
+            "route": event["route"],
+            "network_policy": context.network_policy,
+            "codex_profile": context.codex_profile,
+            "status": status,
+        },
+    )
+    if status == "need_api_approval" or context.api_fallback_approved:
+        _append_audit(
+            "api",
+            {
+                "timestamp": event["timestamp"],
+                "task_hash": context.task_hash,
+                "privacy_level": context.privacy_level,
+                "api_fallback_requested": status == "need_api_approval",
+                "api_fallback_approved": context.api_fallback_approved,
+                "status": status,
+            },
+        )
+    _append_audit(
+        "memory",
+        {
+            "timestamp": event["timestamp"],
+            "task_hash": context.task_hash,
+            "privacy_level": context.privacy_level,
+            "candidate_generated": True,
+            "hermes_review_required": True,
+            "raw_memory_text_logged": False,
+            "status": status,
+        },
+    )
+    _append_audit(
+        "tool",
+        {
+            "timestamp": event["timestamp"],
+            "task_hash": context.task_hash,
+            "tool": "codex_delegate",
+            "files_changed": files_changed or [],
+            "status": status,
+        },
+    )
+
+
+def _append_audit(kind: str, event: dict[str, Any]) -> None:
+    filename = AUDIT_LOGS[kind]
+    with (LOG_DIR / filename).open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 

@@ -18,6 +18,7 @@ required=(
   "prompts/codex_memory_candidate_schema.md"
   "prompts/codex_skill_candidate_schema.md"
   "scripts/inspect_environment.sh"
+  "scripts/install_overlay.sh"
   "scripts/validate_overlay.sh"
   "scripts/install_profile.sh"
   "scripts/fix_launchd_gbrain_path.sh"
@@ -34,6 +35,17 @@ done
 
 python3 -m py_compile "${ROOT}/tools/codex_delegate.py"
 PYTHONPATH="${ROOT}" python3 -m unittest discover -s "${ROOT}/tests" -p 'test_*.py'
+
+for log_name in router_decision codex_delegate api_approval memory_candidate tool_calls; do
+  test -d "${ROOT}/logs" || {
+    echo "Missing logs directory" >&2
+    exit 1
+  }
+  case "${log_name}" in
+    router_decision|codex_delegate|api_approval|memory_candidate|tool_calls) ;;
+    *) exit 1 ;;
+  esac
+done
 
 check_http() {
   local label="$1"

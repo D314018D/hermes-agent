@@ -10,13 +10,13 @@ Codex is not the router, memory owner, skill owner, GBrain writer, or Obsidian w
 - `configs/codex-delegate.config.toml` - optional Codex profile template; not installed by default.
 - `policies/` - routing, privacy, and memory governance rules.
 - `prompts/` - Context Pack and output schemas.
-- `scripts/` - read-only inspection, validation, optional profile install, optional launchd path fix, rollback helper.
+- `scripts/` - read-only inspection, validation, optional plugin install, optional profile install, optional launchd path fix, rollback helper.
 - `tests/` - local wrapper tests.
 - `logs/` - non-sensitive JSONL audit logs.
 
 ## Default Safety Boundary
 
-The overlay is source-only by default. It does not install a Hermes plugin, edit Hermes core, change launchd, write GBrain data, write Obsidian notes, or modify `~/.codex`.
+The overlay source does not edit Hermes core, write GBrain data, write Obsidian notes, or create Hermes skills. Runtime plugin/profile installation is explicit local state and must remain reversible.
 
 ## Basic Validation
 
@@ -35,3 +35,12 @@ cd /Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate
 ## Optional Steps
 
 The profile installer and launchd path fixer are intentionally separate scripts. Review them before running, and run them only after explicit approval for local runtime/config changes.
+
+The plugin installer is also separate:
+
+```bash
+cd /Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate
+./scripts/install_overlay.sh
+```
+
+It installs a symlink at `/Users/rl_home/.hermes/plugins/codex-delegate`, backs up any existing target, and does not restart Hermes.

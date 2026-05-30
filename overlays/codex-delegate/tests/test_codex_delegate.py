@@ -1,6 +1,9 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
+import tools.codex_delegate as codex_delegate
 from tools.codex_delegate import ContextPack, build_child_env, delegate
 
 
@@ -91,6 +94,27 @@ class CodexDelegateTests(unittest.TestCase):
                 os.environ.pop("OPENAI_API_KEY", None)
             else:
                 os.environ["OPENAI_API_KEY"] = old
+
+    def test_audit_logs_use_expected_jsonl_files_without_raw_goal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original_log_dir = codex_delegate.LOG_DIR
+            codex_delegate.LOG_DIR = Path(tmp)
+            try:
+                secretish_goal = "Debug repository issue for customer Acme."
+                result = delegate(context(user_goal=secretish_goal))
+                self.assertEqual(result["status"], "ok")
+                expected = {
+                    "router_decision.jsonl",
+                    "codex_delegate.jsonl",
+                    "memory_candidate.jsonl",
+                    "tool_calls.jsonl",
+                }
+                written = {path.name for path in Path(tmp).glob("*.jsonl")}
+                self.assertTrue(expected.issubset(written))
+                for path in Path(tmp).glob("*.jsonl"):
+                    self.assertNotIn(secretish_goal, path.read_text())
+            finally:
+                codex_delegate.LOG_DIR = original_log_dir
 
 
 if __name__ == "__main__":

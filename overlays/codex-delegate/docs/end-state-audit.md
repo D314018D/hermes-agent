@@ -4,10 +4,11 @@ Date: 2026-05-30
 
 ## Status
 
-The Codex delegate overlay exists as a source-only project. It is not installed
-as a live Hermes runtime plugin and does not modify Hermes core, GBrain raw
-storage, Obsidian canonical notes, Hermes skills, Codex auth, or OpenAI API
-settings.
+The Codex delegate overlay exists as an isolated integration project. After
+explicit approval, it is also installed as a Hermes user plugin symlink at
+`/Users/rl_home/.hermes/plugins/codex-delegate`. It does not modify Hermes core,
+GBrain raw storage, Obsidian canonical notes, Hermes skills, Codex auth, or
+OpenAI API settings.
 
 ## Verified
 
@@ -15,12 +16,34 @@ settings.
 - Gateway health was verified as `ok` during validation.
 - oMLX health was verified as `healthy` during validation.
 - The overlay exists at `/Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate`.
+- The runtime plugin symlink points to the overlay source.
+- The optional Codex profile exists at `/Users/rl_home/.codex/codex-delegate.config.toml`.
 - Routing, privacy, and memory policies are documented under `policies/`.
 - Codex delegate wrapper tests pass locally.
 - API fallback remains off by default.
 - Private and secret task fallback rules are represented in policy and tests.
 - Codex output is candidate material only: Task Summary, Memory Candidate, and Skill Candidate.
-- Logs and rollback scripts exist.
+- Logs and rollback scripts exist. The wrapper writes JSONL audit metadata for
+  delegate events, route decisions, API approval requests, memory candidates,
+  and tool calls without raw private content.
+
+## End-State Checklist
+
+| Requirement | Current evidence |
+|---|---|
+| Hermes remains live main agent and gateway | `curl http://127.0.0.1:8642/health` returns `{"status":"ok","platform":"hermes-agent"}` |
+| No Hermes core source modified by this overlay | Runtime integration is a user plugin symlink; overlay source is under `Documents/Codex/Hermes_Agent/overlays` |
+| Codex delegate overlay exists | `overlays/codex-delegate` contains wrapper, policies, prompts, scripts, tests, and logs directory |
+| Runtime plugin only after approval | Installed after approval at `~/.hermes/plugins/codex-delegate` |
+| 2B/4B/9B routing documented | `policies/routing_policy.yaml` |
+| Codex only for complex engineering | `policies/routing_policy.yaml` and `tools/codex_delegate.py` scope gate |
+| ChatGPT entitlement preferred | `configs/codex-delegate.config.toml` profile and `codex login status` show ChatGPT login |
+| OpenAI API off by default | Profile excludes `OPENAI_API_KEY`; wrapper strips API env unless approved |
+| One-time API fallback required | Wrapper returns `need_api_approval`; private fallback returns `quota_exhausted_private_no_fallback` |
+| No direct GBrain/Obsidian/skill writes | `AGENTS.md`, policies, prompt, and wrapper response schemas enforce candidate-only output |
+| Candidate memory flow preserved | `policies/memory_policy.yaml` and wrapper `memory_candidate` structure |
+| Logs and rollback exist | `logs/`, `scripts/rollback_overlay.sh`, and audit JSONL writers |
+| Upgrade workflow intact | live repo branch `richard/hermes-local` is clean and separate from official `main` strategy |
 
 ## Applied Runtime Item
 
