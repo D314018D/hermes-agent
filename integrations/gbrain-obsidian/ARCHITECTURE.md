@@ -39,4 +39,4 @@ Code mapping:
 - Markdown Renderer: `ingestion/renderer.py` and `ingestion/brain_page_writer.py`
 - Obsidian Vault: `obsidian-vault/`
 
-The live Hermes plugin entrypoint is `obsidian_ingest`, which calls the same ingestion pipeline. Direct Obsidian writes are not the durable-memory path; durable content must pass through GBrain Processing and Memory Store before rendering into the vault.
+The live Hermes plugin entrypoint is `gbrain_ingest`, which calls the same ingestion pipeline. Direct Obsidian writes are not the durable-memory path; durable content must pass through GBrain Processing and Memory Store before rendering into the vault.

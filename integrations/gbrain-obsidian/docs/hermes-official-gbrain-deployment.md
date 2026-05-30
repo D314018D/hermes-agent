@@ -13,7 +13,7 @@ Hermes AIAgent
         ↓
 obsidian-gbrain plugin tools
         ↓
-obsidian_ingest → GBrain classify/summarize/entities/index/graph → Markdown render → Obsidian vault
+gbrain_ingest → GBrain classify/summarize/entities/index/graph → Markdown render → Obsidian vault
 ```
 
 ## Why This Replaces `scripts/hermes_dispatch.py`
@@ -29,7 +29,7 @@ The active user plugin at `~/.hermes/plugins/obsidian-gbrain/` follows the offic
 
 ## Tools
 
-- `obsidian_ingest`: canonical GBrain-first durable memory ingestion; renders Markdown into Obsidian after processing
+- `gbrain_ingest`: canonical GBrain-first durable memory ingestion; renders Markdown into Obsidian after processing
 - `gbrain_import`: imports the vault into GBrain
 - `gbrain_maintain`: embeds stale entries, extracts links/timeline, returns stats
 - `gbrain_query`: queries GBrain before factual project/customer answers
@@ -39,7 +39,7 @@ Do not add `gbrain`, `obsidian`, or `obsidian-gbrain` as static Hermes core tool
 ## Enable In Development
 
 ```bash
-export HERMES_OBSIDIAN_GBRAIN_ROOT="/Users/rl_home/Documents/Codex/Hermes Agent/integrations/gbrain-obsidian"
+export HERMES_OBSIDIAN_GBRAIN_ROOT="/Users/rl_home/Documents/Codex/Hermes_Agent/integrations/gbrain-obsidian"
 hermes plugins enable obsidian-gbrain
 hermes gateway restart
 ```
@@ -70,7 +70,7 @@ Then verify inside Hermes:
 ## Current Live State
 
 - Live Hermes source: `/Users/rl_home/.hermes/hermes-agent`
-- Live branch: `codex/local-consolidation`
+- Live branch: `richard/hermes-local`
 - Current gateway health endpoint: `http://127.0.0.1:8642/health`
 - Plugin status: `obsidian-gbrain` is enabled as a user plugin.
 - Core boundary: live Hermes no longer contains `tools/obsidian_tool.py` or static `gbrain`/`obsidian` toolsets.
@@ -80,5 +80,5 @@ Then verify inside Hermes:
 - A small local model can route simple capture/query tasks, but autonomous tool use needs a model that reliably follows tool schemas.
 - Keep the router cheap and deterministic; reserve the larger local model for complex planning and multi-tool decisions.
 - If the local model starts replying instead of calling tools, treat that as a model/tool-calling capability issue first, not an Obsidian ingestion issue.
-- For the current local OMLX inventory, use `Qwen2.5-7B-Instruct-4bit` as the entry router and `Qwen3.5-9B-MLX-4bit` for complex/tool-heavy Hermes turns.
+- For the current local OMLX inventory, use `Qwen3.5-4B-OptiQ-4bit` as the entry router, `Qwen3.5-2B-OptiQ-4bit` for lightweight auxiliary tasks, and `Qwen3.5-9B-OptiQ-4bit` for complex/tool-heavy Hermes turns.
 - Set `agent.tool_use_enforcement: true` for local non-GPT models; Hermes' `auto` mode only enables this reinforcement for GPT-family model names.
