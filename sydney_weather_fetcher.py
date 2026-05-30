@@ -13,12 +13,31 @@ os.environ['VIRTUAL_ENV'] = os.path.expanduser('~/.hermes/hermes-agent/venv')
 import requests
 from datetime import datetime
 
+
+def openweather_api_key():
+    """Load the OpenWeatherMap API key from local environment only."""
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(os.path.expanduser("~/.hermes/.env"))
+    except Exception:
+        pass
+    api_key = os.environ.get("OPENWEATHER_API_KEY", "").strip()
+    if not api_key:
+        print("Error: OPENWEATHER_API_KEY is not set in the environment or ~/.hermes/.env")
+        return None
+    return api_key
+
+
 def fetch_sydney_weather():
     """Fetch weather data from OpenWeatherMap API."""
+    api_key = openweather_api_key()
+    if not api_key:
+        return None
     base_url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
         'q': 'Sydney, Australia',
-        'appid': 'YOUR_API_KEY_HERE',  # Add your OpenWeatherMap API key
+        'appid': api_key,
         'units': 'metric'
     }
     
@@ -32,10 +51,13 @@ def fetch_sydney_weather():
 
 def fetch_10_day_forecast():
     """Fetch 10-day forecast from OpenWeatherMap API."""
+    api_key = openweather_api_key()
+    if not api_key:
+        return None
     base_url = "https://api.openweathermap.org/data/2.5/forecast"
     params = {
         'q': 'Sydney, Australia',
-        'appid': 'YOUR_API_KEY_HERE',  # Add your OpenWeatherMap API key
+        'appid': api_key,
         'units': 'metric'
     }
     

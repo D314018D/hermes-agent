@@ -4306,12 +4306,67 @@ class HermesCLI:
     def _resolve_turn_agent_config(self, user_message: str) -> dict:
         """Build the effective model/runtime config for a single user turn.
 
-        Always uses the session's primary model/provider.  If the user has
-        toggled `/fast` on and the current model supports Priority
-        Processing / Anthropic fast mode, attach `request_overrides` so the
-        API call is marked accordingly.
+        Uses the session's primary model/provider by default. When
+        ``entry_router`` is enabled, simple turns stay on the entry model and
+        complex turns use ``complex_model``. If the user has toggled `/fast`
+        on and the current model supports Priority Processing / Anthropic
+        fast mode, attach `request_overrides` so the API call is marked
+        accordingly.
         """
+        from hermes_cli.config import load_config
         from hermes_cli.models import resolve_fast_mode_overrides
+        try:
+            from routing.local_cloud.classifier import classify_message
+        except ModuleNotFoundError:
+            def classify_message(message: str, config: dict | None = None):
+                text = (message or "").lower()
+                complex_needles = (
+                    "code", "coding", "debug", "bug", "fix", "refactor",
+                    "architecture", "plan", "review", "traceback", "error",
+                    "python", "javascript", "typescript", "rust", "golang",
+                    "代码", "调试", "修复", "重构", "架构", "规划", "评审",
+                )
+                route = "cloud" if any(needle in text for needle in complex_needles) else "local"
+                return type("RouteDecision", (), {"route": route})()
+
+        def _model_name_and_context(value):
+            if isinstance(value, dict):
+                return value.get("default") or value.get("model"), value.get("context_length")
+            if isinstance(value, str):
+                return value, None
+            return None, None
+
+        cfg = {}
+        try:
+            cfg = load_config() or {}
+        except Exception:
+            cfg = {}
+
+        model_cfg = cfg.get("model") if isinstance(cfg.get("model"), dict) else {}
+        entry_router_cfg = cfg.get("entry_router") if isinstance(cfg.get("entry_router"), dict) else {}
+        top_complex_cfg = cfg.get("complex_model")
+
+        route_model = self.model
+        route_context_length = model_cfg.get("context_length") if isinstance(model_cfg, dict) else None
+        if entry_router_cfg.get("enabled"):
+            entry_model = entry_router_cfg.get("entry_model") or model_cfg.get("default") or self.model
+            complex_model, complex_context_length = _model_name_and_context(top_complex_cfg)
+            if not complex_model:
+                complex_model, complex_context_length = _model_name_and_context(
+                    entry_router_cfg.get("complex_model")
+                )
+            if complex_model:
+                use_complex = False
+                try:
+                    decision = classify_message(user_message or "", cfg)
+                    use_complex = decision.route in {"cloud", "hybrid", "ask"}
+                except Exception as exc:
+                    logger.debug("cli entry_router classification failed: %s", exc)
+                if use_complex:
+                    route_model = complex_model
+                    route_context_length = complex_context_length
+                else:
+                    route_model = entry_model
 
         runtime = {
             "api_key": self.api_key,
@@ -4321,17 +4376,19 @@ class HermesCLI:
             "command": self.acp_command,
             "args": list(self.acp_args or []),
             "credential_pool": getattr(self, "_credential_pool", None),
+            "config_context_length": route_context_length,
         }
         route = {
-            "model": self.model,
+            "model": route_model,
             "runtime": runtime,
             "signature": (
-                self.model,
+                route_model,
                 runtime["provider"],
                 runtime["base_url"],
                 runtime["api_mode"],
                 runtime["command"],
                 tuple(runtime["args"]),
+                route_context_length,
             ),
         }
 
@@ -4425,16 +4482,22 @@ class HermesCLI:
                 pass
         
         try:
-            runtime = runtime_override or {
-                "api_key": self.api_key,
-                "base_url": self.base_url,
-                "provider": self.provider,
-                "api_mode": self.api_mode,
-                "command": self.acp_command,
-                "args": list(self.acp_args or []),
-                "credential_pool": getattr(self, "_credential_pool", None),
-            }
-            effective_model = model_override or self.model
+            if runtime_override or model_override:
+                runtime = runtime_override or {
+                    "api_key": self.api_key,
+                    "base_url": self.base_url,
+                    "provider": self.provider,
+                    "api_mode": self.api_mode,
+                    "command": self.acp_command,
+                    "args": list(self.acp_args or []),
+                    "credential_pool": getattr(self, "_credential_pool", None),
+                    "config_context_length": None,
+                }
+                effective_model = model_override or self.model
+            else:
+                turn_route = self._resolve_turn_agent_config("")
+                runtime = turn_route["runtime"]
+                effective_model = turn_route["model"]
             self.agent = AIAgent(
                 model=effective_model,
                 api_key=runtime.get("api_key"),
@@ -4444,6 +4507,7 @@ class HermesCLI:
                 acp_command=runtime.get("command"),
                 acp_args=runtime.get("args"),
                 credential_pool=runtime.get("credential_pool"),
+                config_context_length=runtime.get("config_context_length"),
                 max_iterations=self.max_turns,
                 enabled_toolsets=self.enabled_toolsets,
                 disabled_toolsets=self.disabled_toolsets,
@@ -8129,6 +8193,7 @@ class HermesCLI:
                     api_mode=turn_route["runtime"].get("api_mode"),
                     acp_command=turn_route["runtime"].get("command"),
                     acp_args=turn_route["runtime"].get("args"),
+                    config_context_length=turn_route["runtime"].get("config_context_length"),
                     max_iterations=self.max_turns,
                     enabled_toolsets=self.enabled_toolsets,
                     quiet_mode=True,

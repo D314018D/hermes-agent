@@ -227,6 +227,24 @@ class TestLaunchdPlistCurrentness:
 
         assert gateway_cli.launchd_plist_is_current() is True
 
+    def test_launchd_plist_is_current_ignores_local_obsidian_env(self, tmp_path, monkeypatch):
+        plist_path = tmp_path / "ai.hermes.gateway.plist"
+        monkeypatch.setattr(gateway_cli, "get_launchd_plist_path", lambda: plist_path)
+
+        installed = gateway_cli.generate_launchd_plist().replace(
+            "        <key>HERMES_HOME</key>\n"
+            f"        <string>{gateway_cli.get_hermes_home().resolve()}</string>",
+            "        <key>HERMES_HOME</key>\n"
+            f"        <string>{gateway_cli.get_hermes_home().resolve()}</string>\n"
+            "        <key>HERMES_OBSIDIAN_GBRAIN_ROOT</key>\n"
+            "        <string>/Users/example/integrations/gbrain-obsidian</string>\n"
+            "        <key>HERMES_OBSIDIAN_WRITE_MODE</key>\n"
+            "        <string>read_only</string>",
+        )
+        plist_path.write_text(installed, encoding="utf-8")
+
+        assert gateway_cli.launchd_plist_is_current() is True
+
 
 # ---------------------------------------------------------------------------
 # cmd_update — macOS launchd detection

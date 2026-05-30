@@ -1,8 +1,0 @@
-{
-  "source_type": "voice",
-  "source_app": "voice_memo",
-  "captured_at": "",
-  "title": "",
-  "content": "Put transcript text here after STT.",
-  "attachments": ["original-audio.m4a"]
-}

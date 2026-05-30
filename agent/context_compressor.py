@@ -391,7 +391,7 @@ class ContextCompressor(ContextEngine):
         self.context_length = context_length
         self.threshold_tokens = max(
             int(context_length * self.threshold_percent),
-            MINIMUM_CONTEXT_LENGTH,
+            MINIMUM_CONTEXT_LENGTH if context_length >= MINIMUM_CONTEXT_LENGTH else 0,
         )
         # Recalculate token budgets for the new context length so the
         # compressor stays calibrated after a model switch (e.g. 200K → 32K).
@@ -432,13 +432,11 @@ class ContextCompressor(ContextEngine):
             config_context_length=config_context_length,
             provider=provider,
         )
-        # Floor: never compress below MINIMUM_CONTEXT_LENGTH tokens even if
-        # the percentage would suggest a lower value.  This prevents premature
-        # compression on large-context models at 50% while keeping the % sane
-        # for models right at the minimum.
+        # Floor: keep the 64K minimum threshold for large-context models, but
+        # let smaller-context models compress against their real window.
         self.threshold_tokens = max(
             int(self.context_length * threshold_percent),
-            MINIMUM_CONTEXT_LENGTH,
+            MINIMUM_CONTEXT_LENGTH if self.context_length >= MINIMUM_CONTEXT_LENGTH else 0,
         )
         self.compression_count = 0
 

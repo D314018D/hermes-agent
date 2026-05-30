@@ -2363,7 +2363,9 @@ class AIAgent:
         from agent.model_metadata import MINIMUM_CONTEXT_LENGTH
         _ctx = getattr(self.context_compressor, "context_length", 0)
         _allow_entry_router_small_context = False
+        _allow_small_context_models = False
         try:
+            _agent_runtime_cfg = _agent_cfg.get("agent") if isinstance(_agent_cfg, dict) else None
             _entry_router_cfg = _agent_cfg.get("entry_router") if isinstance(_agent_cfg, dict) else None
             _configured_model = _model_cfg.get("default") if isinstance(_model_cfg, dict) else None
             _entry_model = (
@@ -2377,9 +2379,19 @@ class AIAgent:
                 and bool(_entry_router_cfg.get("complex_model") or _agent_cfg.get("complex_model"))
                 and self.model in {m for m in (_configured_model, _entry_model) if m}
             )
+            _allow_small_context_models = (
+                isinstance(_agent_runtime_cfg, dict)
+                and bool(_agent_runtime_cfg.get("allow_small_context_models"))
+            )
         except Exception:
             _allow_entry_router_small_context = False
-        if _ctx and _ctx < MINIMUM_CONTEXT_LENGTH and not _allow_entry_router_small_context:
+            _allow_small_context_models = False
+        if (
+            _ctx
+            and _ctx < MINIMUM_CONTEXT_LENGTH
+            and not _allow_entry_router_small_context
+            and not _allow_small_context_models
+        ):
             raise ValueError(
                 f"Model {self.model} has a context window of {_ctx:,} tokens, "
                 f"which is below the minimum {MINIMUM_CONTEXT_LENGTH:,} required "

@@ -46,7 +46,19 @@ HYBRID_TASKS = {
 
 TASK_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("pr_review", ("pr review", "pull request", "review this pr", "code review", "review diff")),
-    ("repo_refactor", ("refactor", "restructure repo", "rename module", "split module", "large refactor")),
+    ("repo_refactor", (
+        "refactor",
+        "restructure repo",
+        "rename module",
+        "split module",
+        "large refactor",
+        "review this repo",
+        "review this repository",
+        "review repo",
+        "review repository",
+        "modify the code",
+        "change the code",
+    )),
     ("debugging", ("debug", "traceback", "stack trace", "exception", "failing test", "fix bug", "why failing")),
     ("architecture", ("architecture", "design", "tradeoff", "scalability", "system design", "架构")),
     ("planning", ("plan", "roadmap", "implementation plan", "break down", "规划", "计划")),

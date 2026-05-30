@@ -59,6 +59,15 @@ def test_coding_routes_cloud():
     assert "task_type_is_cloud_preferred" in decision.reasons
 
 
+def test_repo_review_and_code_modification_routes_cloud():
+    decision = classify_message("Please review this repo and modify the code.", _config())
+
+    assert decision.route == "cloud"
+    assert decision.task_type == "repo_refactor"
+    assert decision.matched_rule == "matched_repo_refactor_keyword"
+    assert "task_type_is_cloud_preferred" in decision.reasons
+
+
 def test_cloud_task_with_local_state_routes_hybrid():
     decision = classify_message(
         "Plan a debugging pass for the Obsidian GBrain ingestion issue",

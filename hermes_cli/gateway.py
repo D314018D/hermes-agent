@@ -2248,17 +2248,48 @@ def _normalize_launchd_plist_for_comparison(text: str) -> str:
     The generated plist intentionally captures a broad PATH assembled from the
     invoking shell so user-installed tools remain reachable under launchd.
     That makes raw text comparison unstable across shells, so ignore the PATH
-    payload when deciding whether the installed plist is stale.
+    payload when deciding whether the installed plist is stale.  Local installs
+    may also preserve Hermes-specific integration environment variables in the
+    launchd plist; keep those from making a service look stale.
     """
+    import io
+    import plistlib
     import re
 
+    try:
+        payload = plistlib.loads(text.encode("utf-8"))
+        env = payload.get("EnvironmentVariables")
+        if isinstance(env, dict):
+            env["PATH"] = "__HERMES_PATH__"
+            for key in (
+                "HERMES_OBSIDIAN_GBRAIN_ROOT",
+                "HERMES_OBSIDIAN_WRITE_MODE",
+            ):
+                env.pop(key, None)
+        buf = io.BytesIO()
+        plistlib.dump(payload, buf, sort_keys=True)
+        return buf.getvalue().decode("utf-8")
+    except Exception:
+        pass
+
     normalized = _normalize_service_definition(text)
-    return re.sub(
+    normalized = re.sub(
         r'(<key>PATH</key>\s*<string>)(.*?)(</string>)',
         r'\1__HERMES_PATH__\3',
         normalized,
         flags=re.S,
     )
+    for key in (
+        "HERMES_OBSIDIAN_GBRAIN_ROOT",
+        "HERMES_OBSIDIAN_WRITE_MODE",
+    ):
+        normalized = re.sub(
+            rf'\s*<key>{re.escape(key)}</key>\s*<string>.*?</string>',
+            "",
+            normalized,
+            flags=re.S,
+        )
+    return normalized
 
 
 def systemd_unit_is_current(system: bool = False) -> bool:
