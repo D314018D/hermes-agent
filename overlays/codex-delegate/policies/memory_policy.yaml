@@ -1,0 +1,25 @@
+version: 1
+governance:
+  - Hermes remains the memory and skills owner.
+  - GBrain remains the official ingest and memory processing layer.
+  - Obsidian remains the final human-readable, auditable knowledge store.
+  - Codex output is candidate material only.
+
+allowed_codex_output:
+  - final_answer
+  - task_summary
+  - memory_candidate
+  - skill_candidate
+
+forbidden_codex_actions:
+  - write_gbrain_raw_database
+  - write_obsidian_canonical_notes
+  - create_or_modify_hermes_skills
+  - store_secrets
+
+approved_flow:
+  - codex_returns_candidates
+  - hermes_reviews_candidates
+  - hermes_sends_approved_candidate_to_gbrain_ingest
+  - gbrain_processes_memory
+  - obsidian_receives_auditable_reflection_through_existing_pipeline

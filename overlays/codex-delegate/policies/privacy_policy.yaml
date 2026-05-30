@@ -1,0 +1,31 @@
+version: 1
+classification:
+  public:
+    handling: "Codex ChatGPT profile may be used for complex engineering tasks."
+  private:
+    indicators:
+      - customer names
+      - quotation or invoice content
+      - contracts or NDA content
+      - Gmail, email, or calendar data
+      - GBrain or Obsidian memory content
+      - family, health, or internal company data
+      - local file paths containing personal or business data
+    handling: "Local only unless manually redacted and separately approved."
+  secret:
+    indicators:
+      - password
+      - API key
+      - secret key
+      - private key
+      - recovery code
+      - token
+      - credential
+    handling: "Block. Do not send to any model."
+
+cloud_fallback:
+  default: false
+  public_complex_task: "Allowed only through Codex ChatGPT entitlement first."
+  quota_exhausted: "Return need_api_approval; do not auto-switch."
+  private_task: "Forbidden."
+  secret_task: "Blocked."

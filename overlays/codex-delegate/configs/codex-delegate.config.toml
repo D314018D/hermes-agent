@@ -1,0 +1,14 @@
+# Optional Codex profile template for Hermes delegate work.
+# Install target, after separate approval:
+#   /Users/rl_home/.codex/codex-delegate.config.toml
+
+model = "gpt-5.5"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+
+[shell_environment_policy]
+inherit = "all"
+exclude = ["OPENAI_API_KEY", "OPENAI_KEY"]

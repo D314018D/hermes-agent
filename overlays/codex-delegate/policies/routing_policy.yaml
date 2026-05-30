@@ -1,0 +1,33 @@
+version: 1
+owner: hermes
+principles:
+  - Hermes performs first-level routing.
+  - Local models handle ordinary, private, memory, and gateway tasks.
+  - Codex is delegated only for complex engineering and execution tasks.
+  - Codex never becomes the main agent or primary router.
+
+routes:
+  ordinary_chat:
+    default: hermes_local_4b
+    codex_allowed: false
+  rewrite_translate:
+    default: hermes_local_4b
+    codex_allowed: false
+  title_tags_compression:
+    default: hermes_local_2b
+    codex_allowed: false
+  private_project_reasoning:
+    default: hermes_local_9b
+    codex_allowed: "local_only_when_explicit"
+  gbrain_obsidian_memory_query:
+    default: hermes_local_9b_gbrain
+    codex_allowed: false
+  complex_non_private_engineering:
+    default: codex_chatgpt_profile
+    codex_allowed: true
+  complex_private_engineering:
+    default: hermes_local_9b_or_local_codex
+    codex_allowed: "no_cloud_fallback"
+  secret_content:
+    default: blocked
+    codex_allowed: false
