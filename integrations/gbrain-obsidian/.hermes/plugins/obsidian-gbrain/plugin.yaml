@@ -1,7 +1,8 @@
 name: obsidian-gbrain
 version: 0.1.0
-description: "Project-local Hermes tools for deterministic Obsidian ingestion and GBrain index maintenance."
+description: "Project-local Hermes tools for GBrain-first durable memory ingestion, Obsidian rendering, and GBrain index maintenance."
 provides_tools:
+  - gbrain_ingest
   - obsidian_ingest
   - gbrain_import
   - gbrain_maintain

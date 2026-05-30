@@ -1,6 +1,6 @@
 interface:
   mode: "qwen_brain_router"
-  router_model: "Qwen2.5-7B-Instruct-4bit"
+  router_model: "Qwen3.5-4B-OptiQ-4bit"
   router_base_url: "http://127.0.0.1:8000/v1"
   default_route: "direct_qwen"
   rule_based_routing: true
@@ -11,18 +11,18 @@ policy:
 
 routes:
   direct_qwen:
-    model: "Qwen2.5-7B-Instruct-4bit"
+    model: "Qwen3.5-4B-OptiQ-4bit"
     provider: "custom"
     base_url: "http://127.0.0.1:8000/v1"
     use_when: "Normal text chat and simple local reasoning."
-  tool_first_obsidian:
-    model: "Qwen2.5-7B-Instruct-4bit"
+  tool_first_gbrain_ingest:
+    model: "Qwen3.5-4B-OptiQ-4bit"
     provider: "custom"
     base_url: "http://127.0.0.1:8000/v1"
     tool_entrypoint: "python3 scripts/ingest.py -"
-    use_when: "The user asks to save, store, capture, or write durable information into Obsidian, vault, or inbox."
+    use_when: "The user asks to save, store, capture, or write durable information; Hermes must hand off to GBrain-controlled ingestion before Obsidian Markdown rendering."
   delegate_hermes_complex:
-    model: "Qwen3.5-9B-MLX-4bit"
+    model: "Qwen3.5-9B-OptiQ-4bit"
     provider: "custom"
     base_url: "http://127.0.0.1:8000/v1"
     use_when: "Complex multi-step reasoning, debugging, implementation, review, long analysis, or tool-heavy Hermes agent work."

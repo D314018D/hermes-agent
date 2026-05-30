@@ -14,13 +14,15 @@ ROUTING_LOG = PROJECT_ROOT / "logs" / "model-routing.jsonl"
 ROUTING_NOTE = PROJECT_ROOT / "obsidian-vault" / "06-skills" / "current-model-routing.md"
 
 DIRECT_QWEN_ROUTE = "direct_qwen"
-TOOL_FIRST_OBSIDIAN_ROUTE = "tool_first_obsidian"
+TOOL_FIRST_GBRAIN_INGEST_ROUTE = "tool_first_gbrain_ingest"
+LEGACY_TOOL_FIRST_OBSIDIAN_ROUTE = "tool_first_obsidian"
 DELEGATE_HERMES_ROUTE = "delegate_hermes_complex"
 VISION_QWEN_ROUTE = "vision_qwen_vl"
 TTS_QWEN_ROUTE = "tts_qwen"
 
-QWEN_BRAIN_MODEL = "Qwen2.5-7B-Instruct-4bit"
-HERMES_AGENT_MODEL = "Hermes-3-Llama-3.1-8B-4bit"
+QWEN_LIGHTWEIGHT_MODEL = "Qwen3.5-2B-OptiQ-4bit"
+QWEN_BRAIN_MODEL = "Qwen3.5-4B-OptiQ-4bit"
+HERMES_AGENT_MODEL = "Qwen3.5-9B-OptiQ-4bit"
 QWEN_VISION_MODEL = "Qwen3-VL-4B-Instruct-MLX-4bit"
 QWEN_TTS_MODEL = "Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit"
 LOCAL_PROVIDER = "custom"
@@ -80,18 +82,18 @@ def route_model(
 
     if wants_obsidian_write:
         route = ModelRoute(
-            route=TOOL_FIRST_OBSIDIAN_ROUTE,
+            route=TOOL_FIRST_GBRAIN_INGEST_ROUTE,
             model=QWEN_BRAIN_MODEL,
-            reason="Qwen detected durable Obsidian capture intent; use the ingestion pipeline before freeform file writes.",
+            reason="Qwen detected durable GBrain ingestion intent; hand off to GBrain before any Obsidian Markdown rendering.",
             confidence=0.94,
-            tool_action="run_ingest",
+            tool_action="run_gbrain_ingest",
             tool_entrypoint="python3 scripts/ingest.py -",
             metadata={
                 "selected_by": "qwen_brain_router",
                 "forced_router": bool(force_router),
                 "should_call_tool": True,
-                "tool": "ingestion_pipeline",
-                "target_hint": "obsidian-vault/00-inbox or resolver-selected page",
+                "tool": "gbrain_ingestion_pipeline",
+                "target_hint": "GBrain review boundary before Obsidian vault rendering",
                 "switch_main_model": False,
             },
         )
@@ -166,7 +168,8 @@ def route_model(
         )
         if llm_choice and llm_choice.get("route") in {
             DIRECT_QWEN_ROUTE,
-            TOOL_FIRST_OBSIDIAN_ROUTE,
+            TOOL_FIRST_GBRAIN_INGEST_ROUTE,
+            LEGACY_TOOL_FIRST_OBSIDIAN_ROUTE,
             DELEGATE_HERMES_ROUTE,
             VISION_QWEN_ROUTE,
             TTS_QWEN_ROUTE,
@@ -265,10 +268,11 @@ def _qwen_router_choice(
                 "role": "system",
                 "content": (
                     "You are the Qwen first-pass brain for Hermes. Choose exactly one route "
-                    "from: direct_qwen, tool_first_obsidian, delegate_hermes_complex, "
+                    "from: direct_qwen, tool_first_gbrain_ingest, delegate_hermes_complex, "
                     "vision_qwen_vl, tts_qwen. Return only JSON with keys route, reason, "
-                    "confidence. Use tool_first_obsidian when the user wants durable Obsidian, "
-                    "vault, or inbox capture. Use delegate_hermes_complex for complex multi-step "
+                    "confidence. Use tool_first_gbrain_ingest when the user wants durable GBrain "
+                    "memory ingestion, vault, inbox, or explicit save/capture. Obsidian is the final "
+                    "Markdown render target, not the first processing layer. Use delegate_hermes_complex for complex multi-step "
                     "reasoning or implementation. Use vision_qwen_vl for image inputs. Use "
                     "tts_qwen for speech output. Otherwise use direct_qwen."
                 ),
@@ -332,20 +336,20 @@ def _route_from_name(
     reason_override: str = "",
     confidence_override: float | None = None,
 ) -> ModelRoute:
-    if route_name == TOOL_FIRST_OBSIDIAN_ROUTE:
+    if route_name in {TOOL_FIRST_GBRAIN_INGEST_ROUTE, LEGACY_TOOL_FIRST_OBSIDIAN_ROUTE}:
         return ModelRoute(
-            route=TOOL_FIRST_OBSIDIAN_ROUTE,
+            route=TOOL_FIRST_GBRAIN_INGEST_ROUTE,
             model=QWEN_BRAIN_MODEL,
-            reason=reason_override or "Qwen selected durable Obsidian capture via the ingestion pipeline.",
+            reason=reason_override or "Qwen selected the GBrain-controlled durable memory ingestion boundary.",
             confidence=confidence_override or 0.9,
-            tool_action="run_ingest",
+            tool_action="run_gbrain_ingest",
             tool_entrypoint="python3 scripts/ingest.py -",
             metadata={
                 "selected_by": "qwen_brain_router",
                 "forced_router": bool(force_router),
                 "should_call_tool": True,
-                "tool": "ingestion_pipeline",
-                "target_hint": "obsidian-vault/00-inbox or resolver-selected page",
+                "tool": "gbrain_ingestion_pipeline",
+                "target_hint": "GBrain review boundary before Obsidian vault rendering",
                 "switch_main_model": False,
             },
         )

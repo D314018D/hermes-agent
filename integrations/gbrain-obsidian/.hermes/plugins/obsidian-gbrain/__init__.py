@@ -22,6 +22,12 @@ tools = _load_sibling("tools")
 
 def register(ctx):
     ctx.register_tool(
+        name="gbrain_ingest",
+        toolset="obsidian-gbrain",
+        schema=schemas.GBRAIN_INGEST,
+        handler=tools.gbrain_ingest,
+    )
+    ctx.register_tool(
         name="obsidian_ingest",
         toolset="obsidian-gbrain",
         schema=schemas.OBSIDIAN_INGEST,

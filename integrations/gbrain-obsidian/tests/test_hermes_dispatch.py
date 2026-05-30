@@ -1,12 +1,13 @@
 from agent.runtime import HermesAgentRuntime, ToolExecution
+from core.schemas import HermesMessage
 
 
-def test_wechat_text_obsidian_request_runs_ingest(monkeypatch, tmp_path):
+def test_wechat_text_gbrain_request_runs_ingest(monkeypatch, tmp_path):
     monkeypatch.setattr("agent.runtime.RUN_LOG_PATH", tmp_path / "dispatch.jsonl")
     monkeypatch.setattr("agent.runtime.HermesAgentRuntime._llm_plan", lambda self, message, model, fallback: fallback)
     monkeypatch.setattr(
-        "agent.runtime.HermesAgentRuntime._run_ingest",
-        lambda self, payload, message: ToolExecution(tool="run_ingest", ok=True, payload=payload, result={"should_store": True}),
+        "agent.runtime.HermesAgentRuntime._run_gbrain_ingest",
+        lambda self, payload, message: ToolExecution(tool="run_gbrain_ingest", ok=True, payload=payload, result={"should_store": True}),
     )
 
     result = HermesAgentRuntime().dispatch_payload(
@@ -19,10 +20,32 @@ def test_wechat_text_obsidian_request_runs_ingest(monkeypatch, tmp_path):
         }
     )
 
-    assert result.route == "tool_first_obsidian"
-    assert result.actions[0].tool == "run_ingest"
+    assert result.route == "tool_first_gbrain_ingest"
+    assert result.actions[0].tool == "run_gbrain_ingest"
     assert result.actions[0].ok is True
-    assert result.reply == "已收到，我会按规则写入 Obsidian。"
+    assert result.reply == "已收到，我会交给 GBrain 的写入流程处理。"
+
+
+def test_legacy_run_ingest_action_maps_to_gbrain_ingest(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.HermesAgentRuntime._run_gbrain_ingest",
+        lambda self, payload, message: ToolExecution(tool="run_gbrain_ingest", ok=True, payload=payload, result={"should_store": True}),
+    )
+    message = HermesMessage(
+        message_id="msg-legacy",
+        source="test",
+        source_type="text",
+        input_type="text",
+        user_id="user",
+        timestamp="2026-05-29T00:00:00+10:00",
+        text="save this",
+        language="en",
+    )
+
+    result = HermesAgentRuntime()._run_tool(message, {"tool": "run_ingest", "payload": {"content": "save this"}})
+
+    assert result.tool == "run_gbrain_ingest"
+    assert result.ok is True
 
 
 def test_telegram_complex_request_enqueues_task(monkeypatch, tmp_path):

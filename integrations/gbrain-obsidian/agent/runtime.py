@@ -22,8 +22,9 @@ SYSTEM_PROMPT = (
     "Choose the best next action for the user message. "
     "Return only JSON with keys summary, reply, actions. "
     "actions must be an array. Each action must include tool and optional payload. "
-    "Allowed tools: run_ingest, enqueue_task, reply_only. "
-    "Use run_ingest only for durable notes, vault, inbox, or explicit save/capture requests. "
+    "Allowed tools: run_gbrain_ingest, enqueue_task, reply_only. "
+    "Use run_gbrain_ingest only as a GBrain handoff for durable notes, vault, inbox, or explicit save/capture requests. "
+    "Do not write Obsidian Markdown directly. "
     "Use enqueue_task for multi-step work that cannot be completed synchronously. "
     "Use reply_only when the user only needs an answer."
 )
@@ -98,13 +99,13 @@ class HermesAgentRuntime:
         }
 
     def _fallback_plan(self, message: HermesMessage, route_name: str) -> dict:
-        if route_name == "tool_first_obsidian":
+        if route_name in {"tool_first_gbrain_ingest", "tool_first_obsidian"}:
             return {
-                "summary": "Store durable content in Obsidian through the ingestion pipeline.",
-                "reply": "已收到，我会按规则写入 Obsidian。",
+                "summary": "Hand durable content to the GBrain-controlled ingestion boundary.",
+                "reply": "已收到，我会交给 GBrain 的写入流程处理。",
                 "actions": [
                     {
-                        "tool": "run_ingest",
+                        "tool": "run_gbrain_ingest",
                         "payload": {
                             "source_type": "text",
                             "source_app": f"{message.source}_agent",
@@ -189,15 +190,15 @@ class HermesAgentRuntime:
     def _run_tool(self, message: HermesMessage, action: dict) -> ToolExecution:
         tool = str(action.get("tool") or "").strip()
         payload = action.get("payload") or {}
-        if tool == "run_ingest":
-            return self._run_ingest(payload, message)
+        if tool in {"run_gbrain_ingest", "run_ingest"}:
+            return self._run_gbrain_ingest(payload, message)
         if tool == "enqueue_task":
             return self._enqueue_task(payload, message)
         if tool == "reply_only":
             return ToolExecution(tool=tool, ok=True, payload=payload, result={"reply": payload.get("text", "")})
         return ToolExecution(tool=tool or "unknown", ok=False, payload=payload, error="unsupported tool")
 
-    def _run_ingest(self, payload: dict, message: HermesMessage) -> ToolExecution:
+    def _run_gbrain_ingest(self, payload: dict, message: HermesMessage) -> ToolExecution:
         merged = {
             "source_type": payload.get("source_type") or "text",
             "source_app": payload.get("source_app") or f"{message.source}_agent",
@@ -222,14 +223,17 @@ class HermesAgentRuntime:
             )
             result = json.loads(completed.stdout or "{}")
             return ToolExecution(
-                tool="run_ingest",
+                tool="run_gbrain_ingest",
                 ok=completed.returncode == 0 and bool(result.get("should_store")),
                 payload=merged,
                 result=result,
                 error=completed.stderr.strip(),
             )
         except (OSError, json.JSONDecodeError) as exc:
-            return ToolExecution(tool="run_ingest", ok=False, payload=merged, error=str(exc))
+            return ToolExecution(tool="run_gbrain_ingest", ok=False, payload=merged, error=str(exc))
+
+    def _run_ingest(self, payload: dict, message: HermesMessage) -> ToolExecution:
+        return self._run_gbrain_ingest(payload, message)
 
     def _enqueue_task(self, payload: dict, message: HermesMessage) -> ToolExecution:
         record = {
@@ -266,8 +270,8 @@ class HermesAgentRuntime:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def _default_reply(self, route_name: str, actions: list[ToolExecution]) -> str:
-        if any(item.tool == "run_ingest" and item.ok for item in actions):
-            return "内容已交给 Obsidian ingestion。"
+        if any(item.tool in {"run_gbrain_ingest", "run_ingest"} and item.ok for item in actions):
+            return "内容已交给 GBrain ingestion。"
         if any(item.tool == "enqueue_task" and item.ok for item in actions):
             return "任务已进入 Hermes 队列。"
         if route_name == "direct_qwen":

@@ -12,7 +12,7 @@ def _project_root() -> Path:
     configured = os.environ.get("HERMES_OBSIDIAN_GBRAIN_ROOT", "").strip()
     if configured:
         return Path(configured).expanduser().resolve()
-    return Path("/Users/rl_home/Documents/Codex/Hermes Agent/integrations/gbrain-obsidian")
+    return Path("/Users/rl_home/Documents/Codex/Hermes_Agent/integrations/gbrain-obsidian")
 
 
 ROOT = _project_root()
@@ -36,7 +36,12 @@ def _default_vault(vault_path: str | None = None) -> str:
     return os.environ.get("OBSIDIAN_VAULT_PATH") or str(ROOT / "obsidian-vault")
 
 
-def obsidian_ingest(args: dict, **kwargs) -> str:
+def gbrain_ingest(args: dict, **kwargs) -> str:
+    tool_name = str(kwargs.pop("_tool_name", "gbrain_ingest"))
+    compatibility_alias = bool(kwargs.pop("_compatibility_alias", False))
+    warnings = []
+    if compatibility_alias:
+        warnings.append("obsidian_ingest is a compatibility alias; use gbrain_ingest for new calls")
     try:
         from ingestion.pipeline import ingest
         from ingestion.schema import IngestInput
@@ -44,7 +49,17 @@ def obsidian_ingest(args: dict, **kwargs) -> str:
 
         content = str(args.get("content") or "").strip()
         if not content:
-            return _json({"ok": False, "error": "content is required"})
+            return _json({
+                "ok": False,
+                "status": "error",
+                "dry_run": bool(args.get("dry_run", False)),
+                "output_path": None,
+                "error": "content is required",
+                "warnings": warnings,
+                "tool": tool_name,
+                "canonical_tool": "gbrain_ingest",
+                "compatibility_alias": compatibility_alias,
+            })
 
         payload = {
             "source_type": args.get("source_type") or "text",
@@ -85,17 +100,22 @@ def obsidian_ingest(args: dict, **kwargs) -> str:
         return _json(
             {
                 "ok": bool(result.should_store),
+                "status": result.status,
+                "dry_run": result.dry_run,
                 "output_path": result.output_path,
+                "error": None,
+                "warnings": warnings,
+                "tool": tool_name,
+                "canonical_tool": "gbrain_ingest",
+                "compatibility_alias": compatibility_alias,
                 "note_type": result.note_type,
                 "score": result.score,
-                "status": result.status,
                 "review_status": result.review_status,
                 "sensitivity": result.sensitivity,
                 "confidence": result.confidence,
                 "suggested_folder": result.suggested_folder,
                 "final_folder": result.final_folder,
                 "duplicate_of": result.duplicate_of,
-                "dry_run": result.dry_run,
                 "processing_log_path": result.processing_log_path,
                 "action_items": result.action_items,
                 "entities": result.entities,
@@ -104,7 +124,23 @@ def obsidian_ingest(args: dict, **kwargs) -> str:
             }
         )
     except Exception as exc:
-        return _json({"ok": False, "error": str(exc)})
+        return _json({
+            "ok": False,
+            "status": "error",
+            "dry_run": bool(args.get("dry_run", False)) if isinstance(args, dict) else False,
+            "output_path": None,
+            "error": str(exc),
+            "warnings": warnings,
+            "tool": tool_name,
+            "canonical_tool": "gbrain_ingest",
+            "compatibility_alias": compatibility_alias,
+        })
+
+
+def obsidian_ingest(args: dict, **kwargs) -> str:
+    kwargs["_tool_name"] = "obsidian_ingest"
+    kwargs["_compatibility_alias"] = True
+    return gbrain_ingest(args, **kwargs)
 
 
 def gbrain_import(args: dict, **kwargs) -> str:

@@ -1,27 +1,33 @@
-from routing.model_router import route_model
+from routing.model_router import _route_from_name, route_model
 
 
 def test_default_text_uses_qwen_directly():
     result = route_model("hello")
     assert result.route == "direct_qwen"
-    assert result.model == "Qwen2.5-7B-Instruct-4bit"
-    assert result.router_model == "Qwen2.5-7B-Instruct-4bit"
+    assert result.model == "Qwen3.5-4B-OptiQ-4bit"
+    assert result.router_model == "Qwen3.5-4B-OptiQ-4bit"
     assert result.metadata["selected_by"] == "qwen_brain_router"
     assert result.metadata["switch_main_model"] is False
 
 
-def test_obsidian_capture_routes_to_ingestion_tool():
+def test_gbrain_ingest_capture_routes_to_ingestion_tool():
     result = route_model("请把这条内容写入 Obsidian inbox")
-    assert result.route == "tool_first_obsidian"
-    assert result.tool_action == "run_ingest"
+    assert result.route == "tool_first_gbrain_ingest"
+    assert result.tool_action == "run_gbrain_ingest"
     assert result.tool_entrypoint == "python3 scripts/ingest.py -"
     assert result.metadata["should_call_tool"] is True
+
+
+def test_legacy_obsidian_route_maps_to_gbrain_ingest():
+    result = _route_from_name("tool_first_obsidian", force_router=True, has_voice_clone=False)
+    assert result.route == "tool_first_gbrain_ingest"
+    assert result.tool_action == "run_gbrain_ingest"
 
 
 def test_complex_request_switches_to_hermes():
     result = route_model("please analyze this architecture and implement the refactor")
     assert result.route == "delegate_hermes_complex"
-    assert result.model == "Hermes-3-Llama-3.1-8B-4bit"
+    assert result.model == "Qwen3.5-9B-OptiQ-4bit"
     assert result.metadata["switch_main_model"] is True
 
 
