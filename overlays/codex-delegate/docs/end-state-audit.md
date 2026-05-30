@@ -22,28 +22,34 @@ settings.
 - Codex output is candidate material only: Task Summary, Memory Candidate, and Skill Candidate.
 - Logs and rollback scripts exist.
 
-## Remaining Runtime Item
+## Applied Runtime Item
 
-The live launchd plist still has a stale `HERMES_OBSIDIAN_GBRAIN_ROOT` value:
+The live launchd plist previously had a stale `HERMES_OBSIDIAN_GBRAIN_ROOT` value:
 
 ```text
 /Users/rl_home/Documents/Codex/Hermes Agent/integrations/gbrain-obsidian
 ```
 
-The intended canonical path is:
+On 2026-05-30, this was updated to the canonical path:
 
 ```text
 /Users/rl_home/Documents/Codex/Hermes_Agent/integrations/gbrain-obsidian
 ```
 
-Apply only after explicit approval, using:
+The applied script was:
 
 ```bash
 cd /Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate
 ./scripts/fix_launchd_gbrain_path.sh
 ```
 
-Then restart or reload the Hermes gateway and verify:
+Backup created:
+
+```text
+/Users/rl_home/.hermes/backups/ai.hermes.gateway.plist.20260530-202610.bak
+```
+
+Hermes gateway was restarted and verified with:
 
 ```bash
 curl -sS http://127.0.0.1:8642/health
