@@ -1,0 +1,5 @@
+name: codex-delegate
+version: 0.1.0
+description: "Hermes-controlled Codex delegate wrapper for complex engineering tasks, returning task summary and candidate memory/skill material only."
+provides_tools:
+  - codex_delegate
