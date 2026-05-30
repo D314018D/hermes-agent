@@ -44,6 +44,7 @@ if [[ "${mode}" == "--check" ]]; then
   diff -ru \
     --exclude '__pycache__' \
     --exclude '*.pyc' \
+    --exclude '.DS_Store' \
     "${source_dir}" \
     "${target_dir}"
   echo "obsidian-gbrain plugin source matches installed plugin."
@@ -54,6 +55,7 @@ mkdir -p "${target_dir}"
 rsync -a --delete \
   --exclude '__pycache__' \
   --exclude '*.pyc' \
+  --exclude '.DS_Store' \
   "${source_dir}/" \
   "${target_dir}/"
 echo "Synced obsidian-gbrain plugin to ${target_dir}"
