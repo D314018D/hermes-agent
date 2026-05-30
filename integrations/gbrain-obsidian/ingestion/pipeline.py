@@ -19,6 +19,18 @@ def try_gbrain_sync(vault: str) -> None:
         # GBrain is optional for core local-first ingestion.
         return
 
+
+def hermes_vault_writes_disabled(item: IngestInput) -> bool:
+    mode = os.getenv("HERMES_OBSIDIAN_WRITE_MODE", "read_only").strip().lower()
+    if mode not in {"read_only", "readonly"}:
+        return False
+
+    source_app = item.source_app.strip().lower()
+    if source_app == "hermes_plugin" or source_app.endswith("_agent"):
+        return True
+    return item.metadata.get("writer", "").strip().lower() == "hermes"
+
+
 def ingest(item: IngestInput) -> IngestResult:
     min_score = int(os.getenv("MIN_STORE_SCORE", "3"))
     vault = os.getenv("OBSIDIAN_VAULT_PATH", "./obsidian-vault")
@@ -54,6 +66,29 @@ def ingest(item: IngestInput) -> IngestResult:
     decision = None
 
     if should_store:
+        if hermes_vault_writes_disabled(item):
+            return IngestResult(
+                should_store=False,
+                score=score,
+                note_type=note_type,
+                classification_confidence=classification.confidence,
+                classification_reason=classification.reason,
+                status="blocked",
+                review_status="read_only",
+                sensitivity="",
+                confidence=classification.confidence,
+                suggested_folder="",
+                final_folder="",
+                title=item.title,
+                summary=summary,
+                entities=entities,
+                action_items=processed.action_items,
+                tags=tags + ["hermes_read_only"],
+                markdown=markdown,
+                relations=processed.relations,
+                duplicate_of=processed.duplicate_of,
+                dry_run=True,
+            )
         resolution = resolve_page(item, vault)
         decision = decide_review(item, processed, resolution, vault, auto_commit_enabled=auto_commit)
         if decision.review_status == "pending":

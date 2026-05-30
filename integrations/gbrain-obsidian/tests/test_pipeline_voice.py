@@ -54,3 +54,24 @@ def test_pipeline_dry_run_does_not_write_files(tmp_path, monkeypatch):
     assert result.output_path
     assert not Path(result.output_path).exists()
     assert not (tmp_path / "memory-store/jsonl/records.jsonl").exists()
+
+
+def test_hermes_source_is_read_only_for_obsidian_writes(tmp_path, monkeypatch):
+    monkeypatch.setenv("OBSIDIAN_VAULT_PATH", str(tmp_path / "obsidian-vault"))
+    monkeypatch.setenv("MIN_STORE_SCORE", "3")
+    monkeypatch.setenv("SAVE_RAW_CONTENT", "false")
+    monkeypatch.setenv("GBRAIN_ENABLED", "false")
+    monkeypatch.setenv("GBRAIN_DRY_RUN", "false")
+    monkeypatch.setenv("HERMES_OBSIDIAN_WRITE_MODE", "read_only")
+    payload = json.loads(Path("connectors/voice/example_wechat_woolworths_n70.json").read_text(encoding="utf-8"))
+    payload["source_app"] = "hermes_plugin"
+
+    result = ingest(IngestInput.from_payload(payload))
+
+    assert result.should_store is False
+    assert result.status == "blocked"
+    assert result.review_status == "read_only"
+    assert result.output_path is None
+    assert result.dry_run is True
+    assert not (tmp_path / "obsidian-vault").exists()
+    assert not (tmp_path / "memory-store/jsonl/records.jsonl").exists()
