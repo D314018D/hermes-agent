@@ -18,6 +18,7 @@ OpenAI API settings.
 - The overlay exists at `/Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate`.
 - The runtime plugin symlink points to the overlay source.
 - The optional Codex profile exists at `/Users/rl_home/.codex/codex-delegate.config.toml`.
+- The optional local Codex profile template exists at `configs/local_private_coder.config.toml` and installs to `/Users/rl_home/.codex/local_private_coder.config.toml`.
 - Routing, privacy, and memory policies are documented under `policies/`.
 - Codex delegate wrapper tests pass locally.
 - API fallback remains off by default.
@@ -38,6 +39,7 @@ OpenAI API settings.
 | 2B/4B/9B routing documented | `policies/routing_policy.yaml` |
 | Codex only for complex engineering | `policies/routing_policy.yaml` and `tools/codex_delegate.py` scope gate |
 | ChatGPT entitlement preferred | `configs/codex-delegate.config.toml` profile and `codex login status` show ChatGPT login |
+| Local private Codex profile available | `configs/local_private_coder.config.toml` uses provider `localmlx`, `OMLX_API_KEY`, and `wire_api = "responses"` |
 | OpenAI API off by default | Profile excludes `OPENAI_API_KEY`; wrapper strips API env unless approved |
 | One-time API fallback required | Wrapper returns `need_api_approval`; private fallback returns `quota_exhausted_private_no_fallback` |
 | No direct GBrain/Obsidian/skill writes | `AGENTS.md`, policies, prompt, and wrapper response schemas enforce candidate-only output |

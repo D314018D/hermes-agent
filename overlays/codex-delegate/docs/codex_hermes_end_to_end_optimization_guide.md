@@ -512,13 +512,28 @@ Suggested logical profiles:
 
 ```text
 chatgpt_codex = ChatGPT sign-in entitlement profile
-local_private = local oMLX profile for private/local fallback
+local_private_coder = local oMLX profile for private/local fallback
 api_paid = OpenAI API fallback profile, disabled unless one-time approved
 ```
 
 Do not assume exact profile TOML format without validating installed Codex CLI behavior.
 
 Codex config/profile semantics may vary by version; inspect official config docs and the installed CLI before applying.
+
+Current local oMLX Codex profile decision:
+
+```toml
+model = "Qwen3.5-4B-OptiQ-4bit"
+model_provider = "localmlx"
+
+[model_providers.localmlx]
+name = "Local oMLX"
+base_url = "http://127.0.0.1:8000/v1"
+env_key = "OMLX_API_KEY"
+wire_api = "responses"
+```
+
+Do not use `wire_api = "chat"` with the current installed Codex CLI. Keep this profile isolated in `~/.codex/local_private_coder.config.toml` and do not switch the global Codex default provider to `localmlx`.
 
 ---
 
@@ -535,14 +550,15 @@ Wrapper responsibilities:
 ```text
 1. Receive structured Context Pack from Hermes
 2. Validate privacy classification
-3. Default to Codex ChatGPT profile for allowed complex engineering tasks
-4. Strip OPENAI_API_KEY from environment unless one-time approved API fallback is active
-5. Detect quota/rate-limit errors
-6. Return need_api_approval rather than auto-switching
-7. For private tasks, block cloud/API fallback
-8. Enforce timeout and output size limits
-9. Return structured Task Summary / Memory Candidate / Skill Candidate
-10. Log non-sensitive audit metadata
+3. Default to Codex ChatGPT profile for allowed complex public engineering tasks
+4. Default private Codex delegation to `local_private_coder`
+5. Strip OPENAI_API_KEY from environment unless one-time approved API fallback is active
+6. Detect quota/rate-limit errors
+7. Return need_api_approval rather than auto-switching public tasks to paid API
+8. For private tasks, block cloud/API fallback and use local Codex only when delegated
+9. Enforce timeout and output size limits
+10. Return structured Task Summary / Memory Candidate / Skill Candidate
+11. Log non-sensitive audit metadata
 ```
 
 ### 9.1 Required statuses

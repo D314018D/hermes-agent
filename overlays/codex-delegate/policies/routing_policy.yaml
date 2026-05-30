@@ -27,7 +27,33 @@ routes:
     codex_allowed: true
   complex_private_engineering:
     default: hermes_local_9b_or_local_codex
+    codex_profile: local_private_coder
     codex_allowed: "no_cloud_fallback"
+  codex_quota_exhausted_private:
+    default: local_private_coder
+    codex_allowed: "local_only_no_api_fallback"
+  codex_quota_exhausted_public:
+    default: need_api_approval
+    codex_allowed: "api_paid_only_after_explicit_approval"
   secret_content:
     default: blocked
     codex_allowed: false
+
+codex_profiles:
+  chatgpt_codex:
+    use_for:
+      - complex_non_private_engineering
+  local_private_coder:
+    provider: localmlx
+    use_for:
+      - private_engineering_task
+      - local_config_patch
+      - codex_quota_fallback_for_private_task
+      - offline_patch_test
+  api_paid:
+    use_for:
+      - non_private_coding_fallback_only
+    requires:
+      - chatgpt_quota_exhausted
+      - explicit_user_approval_once
+      - non_private_task

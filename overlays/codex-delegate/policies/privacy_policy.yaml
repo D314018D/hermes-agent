@@ -29,3 +29,14 @@ cloud_fallback:
   quota_exhausted: "Return need_api_approval; do not auto-switch."
   private_task: "Forbidden."
   secret_task: "Blocked."
+
+local_codex:
+  profile: local_private_coder
+  provider: localmlx
+  auth_env: OMLX_API_KEY
+  allowed_for:
+    - private_engineering_task
+    - local_config_patch
+    - codex_quota_fallback_for_private_task
+  forbidden_for:
+    - secret_task

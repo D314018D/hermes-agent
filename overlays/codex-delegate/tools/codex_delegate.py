@@ -108,7 +108,7 @@ class ContextPack:
             ),
             timeout_seconds=max(1, min(timeout_seconds, 3600)),
             max_output_chars=max(1000, min(max_output_chars, 250000)),
-            codex_profile=str(data.get("codex_profile") or "codex-delegate").strip(),
+            codex_profile=_default_codex_profile(privacy_level, data.get("codex_profile")),
             dry_run=bool(data.get("dry_run", False)),
             simulate_codex_output=(
                 str(data["simulate_codex_output"])
@@ -128,6 +128,15 @@ def _string_list(value: Any) -> list[str]:
 
 def _hash_text(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _default_codex_profile(privacy_level: str, value: Any) -> str:
+    explicit = str(value or "").strip()
+    if explicit:
+        return explicit
+    if privacy_level == "private":
+        return "local_private_coder"
+    return "codex-delegate"
 
 
 def _now() -> str:

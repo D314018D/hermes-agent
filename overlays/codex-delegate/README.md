@@ -7,7 +7,8 @@ Codex is not the router, memory owner, skill owner, GBrain writer, or Obsidian w
 ## Layout
 
 - `tools/codex_delegate.py` - guarded wrapper for Codex delegation.
-- `configs/codex-delegate.config.toml` - optional Codex profile template; not installed by default.
+- `configs/codex-delegate.config.toml` - optional Codex ChatGPT delegate profile template; not installed by default.
+- `configs/local_private_coder.config.toml` - optional isolated local oMLX Codex profile; not installed by default.
 - `policies/` - routing, privacy, and memory governance rules.
 - `prompts/` - Context Pack and output schemas.
 - `scripts/` - read-only inspection, validation, optional plugin install, optional profile install, optional launchd path fix, rollback helper.
@@ -35,6 +36,15 @@ cd /Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate
 ## Optional Steps
 
 The profile installer and launchd path fixer are intentionally separate scripts. Review them before running, and run them only after explicit approval for local runtime/config changes.
+
+Install the local/private Codex profile only after confirming oMLX is healthy:
+
+```bash
+cd /Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate
+./scripts/install_profile.sh local_private_coder
+```
+
+This writes `~/.codex/local_private_coder.config.toml`, uses `env_key = "OMLX_API_KEY"`, and does not change the global Codex default model.
 
 The plugin installer is also separate:
 

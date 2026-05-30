@@ -1,0 +1,24 @@
+# Optional isolated Codex profile for local/private engineering tasks.
+# Install target, after separate approval:
+#   /Users/rl_home/.codex/local_private_coder.config.toml
+#
+# Do not make this the global Codex default. Hermes remains the first-level
+# router and decides when private/local Codex delegation is appropriate.
+
+model = "Qwen3.5-4B-OptiQ-4bit"
+model_provider = "localmlx"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[model_providers.localmlx]
+name = "Local oMLX"
+base_url = "http://127.0.0.1:8000/v1"
+env_key = "OMLX_API_KEY"
+wire_api = "responses"
+
+[sandbox_workspace_write]
+network_access = false
+
+[shell_environment_policy]
+inherit = "all"
+exclude = ["OPENAI_API_KEY", "OPENAI_KEY"]

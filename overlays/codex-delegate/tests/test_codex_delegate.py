@@ -7,6 +7,9 @@ import tools.codex_delegate as codex_delegate
 from tools.codex_delegate import ContextPack, build_child_env, delegate
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 def context(**overrides):
     data = {
         "task_id": "test-1",
@@ -50,6 +53,14 @@ class CodexDelegateTests(unittest.TestCase):
             )
         )
         self.assertEqual(result["status"], "blocked_private_cloud")
+
+    def test_private_task_defaults_to_local_private_profile(self):
+        ctx = context(
+            privacy_level="private",
+            user_goal="Debug this private local repository test failure.",
+            codex_profile="",
+        )
+        self.assertEqual(ctx.codex_profile, "local_private_coder")
 
     def test_secret_input_blocked(self):
         result = delegate(
@@ -115,6 +126,13 @@ class CodexDelegateTests(unittest.TestCase):
                     self.assertNotIn(secretish_goal, path.read_text())
             finally:
                 codex_delegate.LOG_DIR = original_log_dir
+
+    def test_local_private_coder_profile_uses_responses_and_env_key(self):
+        profile = (ROOT / "configs" / "local_private_coder.config.toml").read_text()
+        self.assertIn('model_provider = "localmlx"', profile)
+        self.assertIn('wire_api = "responses"', profile)
+        self.assertIn('env_key = "OMLX_API_KEY"', profile)
+        self.assertNotIn('wire_api = "chat"', profile)
 
 
 if __name__ == "__main__":

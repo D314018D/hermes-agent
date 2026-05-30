@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="/Users/rl_home/Documents/Codex/Hermes_Agent/overlays/codex-delegate"
 PROFILE="${HOME}/.codex/codex-delegate.config.toml"
+LOCAL_PROFILE="${HOME}/.codex/local_private_coder.config.toml"
 PLUGIN="${HOME}/.hermes/plugins/codex-delegate"
 
 echo "Rollback helper for optional codex-delegate runtime artifacts."
@@ -18,6 +19,11 @@ fi
 if [[ -f "${PROFILE}" ]]; then
   rm "${PROFILE}"
   echo "Removed optional Codex profile: ${PROFILE}"
+fi
+
+if [[ -f "${LOCAL_PROFILE}" ]]; then
+  rm "${LOCAL_PROFILE}"
+  echo "Removed optional Codex local profile: ${LOCAL_PROFILE}"
 fi
 
 echo "Source overlay remains at ${ROOT}."
