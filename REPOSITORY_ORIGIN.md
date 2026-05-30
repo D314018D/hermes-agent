@@ -1,15 +1,16 @@
 # Repository Origin
 
 - Source machine: `MacMini01`
-- Workspace path: `/Users/rl_home/Documents/Codex/Hermes Agent`
+- Workspace path: `/Users/rl_home/Documents/Codex/Hermes_Agent`
 - Bootstrap method: local GitHub CLI repo creation, then GitHub MCP metadata commit
 
 ## Live Hermes Relationship
 
 - Running Hermes source: `/Users/rl_home/.hermes/hermes-agent`
-- Running Hermes branch after consolidation: `codex/local-consolidation`
+- Running Hermes branch after consolidation: `richard/hermes-local`
 - Live Hermes upstream: `https://github.com/NousResearch/hermes-agent.git`
-- This workspace is not the live Hermes core checkout. Treat it as the local integration, documentation, plugin source, backups, and migration workspace.
+- This workspace is not the live Hermes core checkout. Treat it as the canonical GBrain/Obsidian integration, documentation, plugin source, backups, and migration workspace.
+- The stale live-core copy of `integrations/gbrain-obsidian` was archived to `dump/2026-05-29-hermes-mixed-copy-cleanup/stale-live-core/integrations/gbrain-obsidian` so there is only one active integration source.
 
 ## Ownership Boundary
 

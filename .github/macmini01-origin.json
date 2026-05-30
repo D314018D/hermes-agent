@@ -1,6 +1,6 @@
 {
   "source_machine": "MacMini01",
-  "workspace_path": "/Users/rl_home/Documents/Codex/Hermes Agent",
+  "workspace_path": "/Users/rl_home/Documents/Codex/Hermes_Agent",
   "provisioned_via": ["gh-cli", "codex-github-mcp"],
   "provisioned_on": "2026-04-23"
 }
