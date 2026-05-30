@@ -100,6 +100,7 @@ echo
 
 echo "Codex local_private_coder profile template:"
 grep -q 'model_provider = "localmlx"' "${ROOT}/configs/local_private_coder.config.toml"
+grep -q 'model = "Qwen3.5-9B-OptiQ-4bit"' "${ROOT}/configs/local_private_coder.config.toml"
 grep -q 'wire_api = "responses"' "${ROOT}/configs/local_private_coder.config.toml"
 grep -q 'env_key = "OMLX_API_KEY"' "${ROOT}/configs/local_private_coder.config.toml"
 echo "template ok"

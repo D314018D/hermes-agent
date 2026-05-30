@@ -33,14 +33,14 @@ Install target:
 Key settings:
 
 ```toml
-model = "Qwen3.5-4B-OptiQ-4bit"
+model = "Qwen3.5-9B-OptiQ-4bit"
 model_provider = "localmlx"
 
 [model_providers.localmlx]
 base_url = "http://127.0.0.1:8000/v1"
 env_key = "OMLX_API_KEY"
 wire_api = "responses"
-```
+ ```
 
 The profile uses `OMLX_API_KEY` at runtime. The key must not be committed, logged, or written into Hermes default environment.
 

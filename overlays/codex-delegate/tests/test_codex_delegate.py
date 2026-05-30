@@ -130,6 +130,7 @@ class CodexDelegateTests(unittest.TestCase):
     def test_local_private_coder_profile_uses_responses_and_env_key(self):
         profile = (ROOT / "configs" / "local_private_coder.config.toml").read_text()
         self.assertIn('model_provider = "localmlx"', profile)
+        self.assertIn('model = "Qwen3.5-9B-OptiQ-4bit"', profile)
         self.assertIn('wire_api = "responses"', profile)
         self.assertIn('env_key = "OMLX_API_KEY"', profile)
         self.assertNotIn('wire_api = "chat"', profile)

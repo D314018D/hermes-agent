@@ -523,7 +523,7 @@ Codex config/profile semantics may vary by version; inspect official config docs
 Current local oMLX Codex profile decision:
 
 ```toml
-model = "Qwen3.5-4B-OptiQ-4bit"
+model = "Qwen3.5-9B-OptiQ-4bit"
 model_provider = "localmlx"
 
 [model_providers.localmlx]

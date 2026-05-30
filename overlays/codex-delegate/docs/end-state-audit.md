@@ -39,7 +39,7 @@ OpenAI API settings.
 | 2B/4B/9B routing documented | `policies/routing_policy.yaml` |
 | Codex only for complex engineering | `policies/routing_policy.yaml` and `tools/codex_delegate.py` scope gate |
 | ChatGPT entitlement preferred | `configs/codex-delegate.config.toml` profile and `codex login status` show ChatGPT login |
-| Local private Codex profile available | `configs/local_private_coder.config.toml` uses provider `localmlx`, `OMLX_API_KEY`, and `wire_api = "responses"` |
+| Local private Codex profile available | `configs/local_private_coder.config.toml` uses provider `localmlx`, `Qwen3.5-9B-OptiQ-4bit`, `OMLX_API_KEY`, and `wire_api = "responses"` |
 | OpenAI API off by default | Profile excludes `OPENAI_API_KEY`; wrapper strips API env unless approved |
 | One-time API fallback required | Wrapper returns `need_api_approval`; private fallback returns `quota_exhausted_private_no_fallback` |
 | No direct GBrain/Obsidian/skill writes | `AGENTS.md`, policies, prompt, and wrapper response schemas enforce candidate-only output |
