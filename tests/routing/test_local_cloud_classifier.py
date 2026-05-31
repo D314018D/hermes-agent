@@ -137,6 +137,18 @@ def test_zh_force_cloud_term_prefers_debugging_over_coding():
     assert decision.matched_rule == "force_cloud_terms:codex"
 
 
+def test_zh_force_local_term_overrides_planning_cloud_route():
+    decision = classify_message(
+        "不要去上网，你直接用你本地的最强模型分析调Gbrain信息取查生成一个计划",
+        _config(),
+        platform="weixin",
+    )
+
+    assert decision.route == "local"
+    assert decision.task_type == "planning"
+    assert decision.matched_rule == "force_local_terms:不要去上网"
+
+
 def test_zh_memory_record_term_routes_local_memory():
     decision = classify_message(
         "记录：正好跟骏总聊到未来T2 T23的客户管理事情",

@@ -41,7 +41,7 @@ from collections import OrderedDict
 from contextvars import copy_context
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional, Any, List, Union
+from typing import Dict, Optional, Any, List, Union, Mapping
 
 # account_usage imports the OpenAI SDK chain (~230 ms). Only needed by
 # /usage; we still import it at module top in the gateway because test
@@ -1194,6 +1194,7 @@ class GatewayRunner:
     _stop_task: Optional[asyncio.Task] = None
     _session_model_overrides: Dict[str, Dict[str, str]] = {}
     _session_reasoning_overrides: Dict[str, Dict[str, Any]] = {}
+    _local_cloud_route_bypass_once: set[str] = set()
 
     def __init__(self, config: Optional[GatewayConfig] = None):
         global _gateway_runner_ref
@@ -1281,6 +1282,8 @@ class GatewayRunner:
         # Per-session reasoning effort overrides from /reasoning.
         # Key: session_key, Value: parsed reasoning config dict.
         self._session_reasoning_overrides: Dict[str, Dict[str, Any]] = {}
+        # One-shot bypass for local/cloud route activation.
+        self._local_cloud_route_bypass_once: set[str] = set()
         self._kanban_notifier_profile = self._active_profile_name()
         # Teams meeting pipeline runtime (bound later when msgraph_webhook adapter exists).
         self._teams_pipeline_runtime = None
@@ -8010,6 +8013,24 @@ class GatewayRunner:
                     _stale_adapter._post_delivery_callbacks.pop(_quick_key, None)
                 return None
 
+            if self._should_retry_locally_after_codex_failure(agent_result):
+                logger.warning(
+                    "openai-codex failed with a non-retryable client error in session %s; retrying once on baseline local runtime",
+                    session_key or "",
+                )
+                self._local_cloud_route_bypass_once.add(session_key)
+                agent_result = await self._run_agent(
+                    message=message_text,
+                    context_prompt=context_prompt,
+                    history=history,
+                    source=source,
+                    session_id=session_entry.session_id,
+                    session_key=session_key,
+                    run_generation=run_generation,
+                    event_message_id=self._reply_anchor_for_event(event),
+                    channel_prompt=event.channel_prompt,
+                )
+
             response = agent_result.get("final_response") or ""
 
             # Convert the agent's internal "(empty)" sentinel into a
@@ -14172,6 +14193,33 @@ class GatewayRunner:
         override = self._session_model_overrides.get(session_key)
         return override is not None and override.get("model") == agent_model
 
+    def _consume_local_cloud_route_bypass(self, session_key: str | None) -> bool:
+        """Return True once when a session should skip cloud-route activation."""
+        if not session_key:
+            return False
+        bypass = getattr(self, "_local_cloud_route_bypass_once", None)
+        if not isinstance(bypass, set):
+            return False
+        if session_key in bypass:
+            bypass.discard(session_key)
+            return True
+        return False
+
+    @staticmethod
+    def _should_retry_locally_after_codex_failure(agent_result: Mapping[str, Any] | None) -> bool:
+        """Detect the narrow Codex client failure that merits one local retry."""
+        if not isinstance(agent_result, Mapping):
+            return False
+        if not agent_result.get("failed"):
+            return False
+        provider = str(agent_result.get("provider") or "").strip().lower()
+        if provider != "openai-codex":
+            return False
+        error_text = str(agent_result.get("error") or "").strip().lower()
+        if not error_text:
+            return False
+        return "'nonetype' object is not iterable" in error_text
+
     def _release_running_agent_state(
         self,
         session_key: str,
@@ -15565,7 +15613,17 @@ class GatewayRunner:
                 runtime_kwargs,
                 user_config=user_config,
             )
-            if route_decision is not None and getattr(route_decision, "enabled", False):
+            _bypass_active_route = self._consume_local_cloud_route_bypass(session_key)
+            if _bypass_active_route:
+                logger.info(
+                    "local/cloud route bypass consumed for session=%s; using baseline local runtime for this turn",
+                    session_key or "",
+                )
+            if (
+                route_decision is not None
+                and getattr(route_decision, "enabled", False)
+                and not _bypass_active_route
+            ):
                 try:
                     from routing.local_cloud import resolve_active_route_runtime
 
@@ -16131,6 +16189,7 @@ class GatewayRunner:
                 _output_toks = getattr(_agent, "session_completion_tokens", 0)
                 _context_length = getattr(_agent.context_compressor, "context_length", 0) or 0
             _resolved_model = getattr(_agent, "model", None) if _agent else None
+            _resolved_provider = getattr(_agent, "provider", None) if _agent else None
 
             if not final_response:
                 error_msg = f"⚠️ {result['error']}" if result.get("error") else ""
@@ -16151,6 +16210,7 @@ class GatewayRunner:
                     "input_tokens": _input_toks,
                     "output_tokens": _output_toks,
                     "model": _resolved_model,
+                    "provider": _resolved_provider,
                     "context_length": _context_length,
                 }
             
@@ -16270,6 +16330,7 @@ class GatewayRunner:
                 "input_tokens": _input_toks,
                 "output_tokens": _output_toks,
                 "model": _resolved_model,
+                "provider": _resolved_provider,
                 "context_length": _context_length,
                 "session_id": effective_session_id,
                 "response_previewed": result.get("response_previewed", False),

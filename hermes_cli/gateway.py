@@ -2264,6 +2264,7 @@ def _normalize_launchd_plist_for_comparison(text: str) -> str:
             for key in (
                 "HERMES_OBSIDIAN_GBRAIN_ROOT",
                 "HERMES_OBSIDIAN_WRITE_MODE",
+                "OBSIDIAN_VAULT_PATH",
             ):
                 env.pop(key, None)
         buf = io.BytesIO()
@@ -2282,6 +2283,7 @@ def _normalize_launchd_plist_for_comparison(text: str) -> str:
     for key in (
         "HERMES_OBSIDIAN_GBRAIN_ROOT",
         "HERMES_OBSIDIAN_WRITE_MODE",
+        "OBSIDIAN_VAULT_PATH",
     ):
         normalized = re.sub(
             rf'\s*<key>{re.escape(key)}</key>\s*<string>.*?</string>',

@@ -16,6 +16,18 @@ FORCE_CLOUD_TERMS = (
     "云端",
 )
 
+FORCE_LOCAL_TERMS = (
+    "不要去上网",
+    "不要上网",
+    "别上网",
+    "本地模型",
+    "本地的最强模型",
+    "直接用本地",
+    "仅用本地",
+    "只用本地",
+    "本地分析",
+)
+
 TASK_RULES: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("debugging", ("排查", "调试", "定位", "复现", "出了什么问题", "哪里有问题", "检查一下", "检查", "bug", "报错", "日志"), "zh_debugging_term"),
     ("planning", ("规划", "计划", "方案", "路线图", "roadmap", "梳理", "落地", "执行计划", "修复方案"), "zh_planning_term"),
@@ -45,6 +57,17 @@ def detect_zh_rule(
 ) -> ZhRuleMatch | None:
     lower = (text or "").lower()
     platform_cfg = _platform_policy(config, platform)
+
+    force_local_terms = tuple(platform_cfg.get("force_local_terms") or FORCE_LOCAL_TERMS)
+    for term in force_local_terms:
+        if term and term.lower() in lower:
+            return ZhRuleMatch(
+                route="local",
+                task_type=_forced_local_task_type(lower),
+                matched_rule=f"force_local_terms:{term}",
+                confidence=0.98,
+                reason="zh_force_local_term",
+            )
 
     force_cloud_terms = tuple(platform_cfg.get("force_cloud_terms") or FORCE_CLOUD_TERMS)
     for term in force_cloud_terms:
@@ -83,6 +106,18 @@ def _forced_cloud_task_type(lower: str) -> str:
     if any(term in lower for term in ("修复", "改代码", "写代码", "实现")):
         return "coding"
     return "coding"
+
+
+def _forced_local_task_type(lower: str) -> str:
+    if any(term in lower for term in ("排查", "调试", "问题", "检查", "报错", "日志")):
+        return "debugging"
+    if any(term in lower for term in ("规划", "计划", "方案", "路线图", "roadmap", "梳理", "落地", "执行计划")):
+        return "planning"
+    if any(term in lower for term in ("架构", "设计", "取舍", "tradeoff")):
+        return "architecture"
+    if any(term in lower for term in ("修复", "改代码", "写代码", "实现")):
+        return "coding"
+    return "quick_chat"
 
 
 def _platform_policy(config: Mapping[str, Any] | None, platform: str) -> Mapping[str, Any]:

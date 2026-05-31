@@ -239,7 +239,9 @@ class TestLaunchdPlistCurrentness:
             "        <key>HERMES_OBSIDIAN_GBRAIN_ROOT</key>\n"
             "        <string>/Users/example/integrations/gbrain-obsidian</string>\n"
             "        <key>HERMES_OBSIDIAN_WRITE_MODE</key>\n"
-            "        <string>read_only</string>",
+            "        <string>read_only</string>\n"
+            "        <key>OBSIDIAN_VAULT_PATH</key>\n"
+            "        <string>/Users/example/Hermes_Layers/vault/obsidian-vault</string>",
         )
         plist_path.write_text(installed, encoding="utf-8")
 
